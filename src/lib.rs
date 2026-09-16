@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
 pub mod cli;
+pub mod config;
 
-mod config;
 mod editor;
 mod terminal;
 mod theme;

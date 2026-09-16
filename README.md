@@ -16,6 +16,17 @@ ink completion zsh > _ink
 
 Accepted values will be written cleanly to stdout. Interactive input and rendering will use the controlling terminal so piped initial values remain compatible with shell composition.
 
+## Configuration
+
+Ink reads `$XDG_CONFIG_HOME/ink/config.toml`, or `$HOME/.config/ink/config.toml` when `XDG_CONFIG_HOME` is unset. Command-line options override matching values in the file.
+
+```toml
+normal = true
+theme = "catppuccin-mocha"
+```
+
+Theme names are case-insensitive and use hyphens as separators.
+
 ## Development
 
 Install pinned tools and run all checks through mise:

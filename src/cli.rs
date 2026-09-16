@@ -2,6 +2,7 @@
 
 use std::process::ExitCode;
 
+use crate::config::{self, CliOptions, ConfigPaths, Settings, ThemeName};
 use usage::{Args, Cli, Subcommands};
 
 #[derive(Cli)]
@@ -59,7 +60,32 @@ pub fn run() -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Input(prompt) | Command::Textarea(prompt) => {
-            let _ = (prompt.value, prompt.normal, prompt.theme);
+            let theme = match prompt
+                .theme
+                .map(|theme| theme.parse::<ThemeName>())
+                .transpose()
+            {
+                Ok(theme) => theme,
+                Err(error) => {
+                    eprintln!("invalid command-line setting `--theme`: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let config = match config::load(&ConfigPaths::from_env()) {
+                Ok(config) => config,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let settings = Settings::resolve(
+                config,
+                CliOptions {
+                    normal: prompt.normal.then_some(true),
+                    theme,
+                },
+            );
+            let _ = (prompt.value, settings);
             eprintln!("ink prompts are not implemented in this bootstrap release");
             ExitCode::FAILURE
         }
