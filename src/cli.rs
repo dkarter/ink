@@ -2,7 +2,10 @@
 
 use std::{ffi::OsStr, process::ExitCode};
 
-use crate::config::{self, CliOptions, ConfigPaths, Settings, ThemeName};
+use crate::{
+    config::{self, CliOptions, ConfigPaths, Settings, ThemeName},
+    theme,
+};
 use usage::{Args, Cli, Subcommands};
 
 #[derive(Cli)]
@@ -125,14 +128,13 @@ fn dispatch_prompt(prompt: Prompt, kind: PromptKind, runtime: &mut impl CliRunti
             return ExitCode::FAILURE;
         }
     };
-    let settings = Settings::resolve(
-        config,
-        CliOptions {
-            normal: prompt.normal.then_some(true),
-            theme,
-        },
-    );
-    let _ = (prompt.value, settings);
+    let cli_options = CliOptions {
+        normal: prompt.normal.then_some(true),
+        theme,
+    };
+    let settings = Settings::resolve(&config, &cli_options);
+    let resolved_theme = theme::resolve(settings.theme, &config.colors);
+    let _ = (prompt.value, settings, resolved_theme);
     runtime.run_prompt(kind)
 }
 

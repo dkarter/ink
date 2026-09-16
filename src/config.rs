@@ -1,12 +1,15 @@
 //! Configuration discovery, loading, and precedence.
 
 use std::{
+    collections::BTreeMap,
     env, fmt, fs, io,
     path::{Path, PathBuf},
     str::FromStr,
 };
 
 use serde::{Deserialize, Deserializer};
+
+use crate::theme::{Color, ColorRole};
 
 const CONFIG_RELATIVE_PATH: &str = "ink/config.toml";
 
@@ -102,10 +105,9 @@ impl FromStr for ThemeName {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let normalized = value.to_ascii_lowercase();
         Self::ALL
             .into_iter()
-            .find(|theme| theme.as_str() == normalized)
+            .find(|theme| theme.as_str().eq_ignore_ascii_case(value))
             .ok_or_else(|| format!("unknown theme `{value}` for setting `theme`"))
     }
 }
@@ -127,6 +129,8 @@ impl<'de> Deserialize<'de> for ThemeName {
 pub struct Config {
     pub normal: Option<bool>,
     pub theme: Option<ThemeName>,
+    #[serde(default)]
+    pub colors: BTreeMap<ColorRole, Color>,
 }
 
 /// Explicit command-line settings. `None` means no command-line override.
@@ -162,7 +166,7 @@ impl Default for Settings {
 impl Settings {
     /// Apply built-ins, then config values, then explicit CLI values.
     #[must_use]
-    pub fn resolve(config: Config, cli: CliOptions) -> Self {
+    pub fn resolve(config: &Config, cli: &CliOptions) -> Self {
         let defaults = Self::default();
         let startup_mode = cli
             .normal

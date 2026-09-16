@@ -87,8 +87,8 @@ fn cfg_003_command_line_overrides_configuration() {
     .expect("parse config");
 
     let settings = Settings::resolve(
-        config,
-        CliOptions {
+        &config,
+        &CliOptions {
             normal: Some(true),
             theme: Some(ThemeName::GruvboxDark),
         },

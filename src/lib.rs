@@ -7,5 +7,5 @@ pub mod editor;
 pub mod startup_bench;
 
 mod terminal;
-mod theme;
+pub mod theme;
 mod ui;
