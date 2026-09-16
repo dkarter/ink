@@ -8,4 +8,4 @@ pub mod startup_bench;
 
 mod terminal;
 pub mod theme;
-mod ui;
+pub mod ui;
