@@ -1,9 +1,11 @@
 //! Composable Vim-style editor state for input and textarea widgets.
 
-use std::ops::Range;
+use std::fmt;
 
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+
+mod selection;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Position {
@@ -28,6 +30,21 @@ pub enum Mode {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InputError {
+    LineBreak,
+}
+
+impl fmt::Display for InputError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::LineBreak => formatter.write_str("single-line input cannot contain line breaks"),
+        }
+    }
+}
+
+impl std::error::Error for InputError {}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BufferKind {
     Input,
     Textarea,
@@ -42,17 +59,22 @@ pub struct Editor {
     unnamed_register: String,
     kind: BufferKind,
     preferred_display_column: Option<usize>,
+    insert_origin: Option<Position>,
+    insert_advanced: bool,
 }
 
 impl Editor {
-    #[must_use]
-    pub fn input(text: impl Into<String>) -> Self {
+    pub fn input(text: impl Into<String>) -> Result<Self, InputError> {
         let text = text.into();
-        assert!(
-            !text.contains(['\n', '\r']),
-            "single-line editor text cannot contain line breaks"
-        );
-        Self::with_kind(text, BufferKind::Input)
+        if contains_line_break(&text) {
+            return Err(InputError::LineBreak);
+        }
+        Ok(Self::with_kind(text, BufferKind::Input))
+    }
+
+    #[must_use]
+    pub fn empty_input() -> Self {
+        Self::with_kind(String::new(), BufferKind::Input)
     }
 
     #[must_use]
@@ -69,6 +91,8 @@ impl Editor {
             unnamed_register: String::new(),
             kind,
             preferred_display_column: None,
+            insert_origin: None,
+            insert_advanced: false,
         }
     }
 
@@ -99,6 +123,8 @@ impl Editor {
 
     pub fn enter_insert(&mut self) {
         self.clear_selection(Mode::Insert);
+        self.insert_origin = Some(self.cursor);
+        self.insert_advanced = false;
     }
 
     pub fn enter_visual(&mut self) {
@@ -118,23 +144,33 @@ impl Editor {
     }
 
     pub fn escape(&mut self) {
-        if self.mode == Mode::Insert && self.cursor.column > 0 {
+        let was_insert = self.mode == Mode::Insert;
+        if was_insert
+            && self.insert_advanced
+            && self.cursor.column > 0
+            && self
+                .insert_origin
+                .is_some_and(|origin| origin != self.cursor)
+        {
             self.cursor.column -= 1;
         }
+        let byte = self.position_to_byte(self.cursor, was_insert);
         self.clear_selection(Mode::Normal);
-        self.cursor = self.clamp_position(self.cursor, false);
+        self.cursor = self.normal_position_from_byte(byte);
     }
 
     pub fn insert(&mut self, value: &str) -> bool {
         if self.mode != Mode::Insert
-            || (self.kind == BufferKind::Input && value.contains(['\n', '\r']))
+            || (self.kind == BufferKind::Input && contains_line_break(value))
         {
             return false;
         }
 
-        let byte = self.position_to_byte(self.cursor, true);
+        let previous_cursor = self.cursor;
+        let byte = self.position_to_byte(previous_cursor, true);
         self.text.insert_str(byte, value);
         self.cursor = self.position_from_byte(byte + value.len());
+        self.insert_advanced |= self.cursor != previous_cursor;
         self.preferred_display_column = None;
         true
     }
@@ -176,25 +212,6 @@ impl Editor {
             length.saturating_sub(1)
         };
         self.preferred_display_column = None;
-    }
-
-    #[must_use]
-    pub fn selection_ranges(&self) -> Vec<Range<usize>> {
-        let Some(anchor) = self.anchor else {
-            return Vec::new();
-        };
-
-        match self.mode {
-            Mode::Visual => vec![self.character_range(anchor, self.cursor)],
-            Mode::VisualLine => vec![self.line_range(anchor.line, self.cursor.line)],
-            Mode::VisualBlock => self.block_ranges(anchor, self.cursor),
-            Mode::Normal | Mode::Insert => Vec::new(),
-        }
-    }
-
-    #[must_use]
-    pub fn selected_text(&self) -> String {
-        self.text_for_ranges(&self.selection_ranges())
     }
 
     pub fn delete_selection(&mut self) -> bool {
@@ -250,11 +267,17 @@ impl Editor {
         self.cursor = self.clamp_position(self.cursor, false);
         self.mode = mode;
         self.anchor = Some(self.cursor);
+        self.insert_origin = None;
+        self.insert_advanced = false;
     }
 
     fn clear_selection(&mut self, mode: Mode) {
         self.mode = mode;
         self.anchor = None;
+        if mode != Mode::Insert {
+            self.insert_origin = None;
+            self.insert_advanced = false;
+        }
     }
 
     fn is_visual(&self) -> bool {
@@ -281,42 +304,10 @@ impl Editor {
         } else {
             self.normal_position_from_byte(start.min(self.text.len()))
         };
+        self.insert_origin = (next_mode == Mode::Insert).then_some(self.cursor);
+        self.insert_advanced = false;
         self.preferred_display_column = None;
         true
-    }
-
-    fn text_for_ranges(&self, ranges: &[Range<usize>]) -> String {
-        let separator = if self.mode == Mode::VisualBlock {
-            "\n"
-        } else {
-            ""
-        };
-        let capacity = ranges.iter().map(Range::len).sum::<usize>()
-            + separator.len() * ranges.len().saturating_sub(1);
-        let mut selected = String::with_capacity(capacity);
-        for (index, range) in ranges.iter().enumerate() {
-            if index > 0 {
-                selected.push_str(separator);
-            }
-            selected.push_str(&self.text[range.clone()]);
-        }
-        selected
-    }
-
-    fn selection_start(&self) -> Position {
-        let anchor = self.anchor.unwrap_or(self.cursor);
-        match self.mode {
-            Mode::Visual => anchor.min(self.cursor),
-            Mode::VisualLine => Position::new(anchor.line.min(self.cursor.line), 0),
-            Mode::VisualBlock => {
-                let top = anchor.line.min(self.cursor.line);
-                let left = self
-                    .display_column(anchor)
-                    .min(self.display_column(self.cursor));
-                self.position_at_display_column(top, left)
-            }
-            Mode::Normal | Mode::Insert => self.cursor,
-        }
     }
 
     fn move_vertical(&mut self, direction: isize) {
@@ -333,72 +324,6 @@ impl Editor {
             .saturating_add_signed(direction)
             .min(self.line_count().saturating_sub(1));
         self.cursor = self.position_at_display_column(line, display_column);
-    }
-
-    fn character_range(&self, first: Position, second: Position) -> Range<usize> {
-        let (start, end) = if first <= second {
-            (first, second)
-        } else {
-            (second, first)
-        };
-        let start = self.position_to_byte(start, false);
-        let end = self.next_grapheme_boundary(self.position_to_byte(end, false));
-        start..end
-    }
-
-    fn line_range(&self, first: usize, second: usize) -> Range<usize> {
-        let start_line = first.min(second);
-        let end_line = first.max(second);
-        let start = self.line_bounds(start_line).0;
-        let (_, content_end) = self.line_bounds(end_line);
-        let end = if content_end < self.text.len() {
-            content_end + 1
-        } else {
-            content_end
-        };
-        start..end
-    }
-
-    fn block_ranges(&self, first: Position, second: Position) -> Vec<Range<usize>> {
-        let top = first.line.min(second.line);
-        let bottom = first.line.max(second.line);
-        let first_column = self.display_column(first);
-        let second_column = self.display_column(second);
-        let left = first_column.min(second_column);
-        let right = first_column.max(second_column);
-
-        let mut ranges = Vec::with_capacity(bottom - top + 1);
-        let mut line_start = self.line_bounds(top).0;
-        for _ in top..=bottom {
-            let line_end = self.text[line_start..]
-                .find('\n')
-                .map_or(self.text.len(), |relative| line_start + relative);
-            ranges.push(self.display_range(line_start, line_end, left, right));
-            line_start = (line_end + 1).min(self.text.len());
-        }
-        ranges
-    }
-
-    fn display_range(
-        &self,
-        line_start: usize,
-        line_end: usize,
-        left: usize,
-        right: usize,
-    ) -> Range<usize> {
-        let mut display = 0;
-        let mut selected_start = None;
-        let mut selected_end = None;
-        for (relative, grapheme) in self.text[line_start..line_end].grapheme_indices(true) {
-            let width = display_width(grapheme);
-            let end_column = display + width - 1;
-            if display <= right && end_column >= left {
-                selected_start.get_or_insert(line_start + relative);
-                selected_end = Some(line_start + relative + grapheme.len());
-            }
-            display += width;
-        }
-        selected_start.unwrap_or(line_end)..selected_end.unwrap_or(line_end)
     }
 
     fn display_column(&self, position: Position) -> usize {
@@ -470,7 +395,29 @@ impl Editor {
     }
 
     fn normal_position_from_byte(&self, byte: usize) -> Position {
-        self.clamp_position(self.position_from_byte(byte), false)
+        if self.text.is_empty() {
+            return Position::default();
+        }
+
+        let position = self.position_from_byte(byte);
+        if self.line_grapheme_count(position.line) > 0 {
+            return self.clamp_position(position, false);
+        }
+        if let Some((byte, _)) = self.text[..byte.min(self.text.len())]
+            .grapheme_indices(true)
+            .rev()
+            .find(|(_, grapheme)| *grapheme != "\n")
+        {
+            return self.clamp_position(self.position_from_byte(byte), false);
+        }
+        let byte = byte.min(self.text.len());
+        if let Some((relative, _)) = self.text[byte..]
+            .grapheme_indices(true)
+            .find(|(_, grapheme)| *grapheme != "\n")
+        {
+            return self.clamp_position(self.position_from_byte(byte + relative), false);
+        }
+        Position::default()
     }
 
     fn line_count(&self) -> usize {
@@ -514,4 +461,8 @@ impl Editor {
 
 fn display_width(grapheme: &str) -> usize {
     UnicodeWidthStr::width(grapheme).max(1)
+}
+
+fn contains_line_break(text: &str) -> bool {
+    text.contains(['\n', '\r'])
 }

@@ -1,9 +1,19 @@
-use ink::editor::{Editor, Mode, Position};
+use ink::editor::{Editor, InputError, Mode, Position};
 
 #[test]
 fn edit_001_enter_and_leave_insert_mode() {
-    let mut editor = Editor::input("ab");
+    let mut editor = Editor::input("ab").expect("single-line fixture");
     editor.set_cursor(Position::new(0, 1));
+
+    editor.enter_insert();
+    editor.escape();
+    assert_eq!(editor.cursor(), Position::new(0, 1));
+
+    let mut navigation = Editor::input("abc").expect("single-line fixture");
+    navigation.enter_insert();
+    navigation.move_right();
+    navigation.escape();
+    assert_eq!(navigation.cursor(), Position::new(0, 1));
 
     editor.enter_insert();
     assert!(editor.insert("e\u{301}"));
@@ -12,11 +22,21 @@ fn edit_001_enter_and_leave_insert_mode() {
     assert_eq!(editor.text(), "ae\u{301}b");
     assert_eq!(editor.mode(), Mode::Normal);
     assert_eq!(editor.cursor(), Position::new(0, 1));
+
+    let mut textarea = Editor::textarea("a");
+    textarea.enter_insert();
+    textarea.move_right();
+    assert!(textarea.insert("\n"));
+    textarea.escape();
+    assert_eq!(textarea.cursor(), Position::new(0, 0));
+
+    assert_eq!(Editor::input("first\nsecond"), Err(InputError::LineBreak));
+    assert_eq!(Editor::empty_input().text(), "");
 }
 
 #[test]
 fn edit_002_select_characters_visually() {
-    let mut editor = Editor::input("abcd");
+    let mut editor = Editor::input("abcd").expect("single-line fixture");
     editor.set_cursor(Position::new(0, 1));
     editor.enter_visual();
     editor.move_right();
@@ -51,7 +71,7 @@ fn edit_004_select_a_text_column() {
 
 #[test]
 fn edit_005_delete_selected_text() {
-    let mut editor = Editor::input("abcd");
+    let mut editor = Editor::input("abcd").expect("single-line fixture");
     editor.set_cursor(Position::new(0, 1));
     editor.enter_visual();
     editor.move_right();
@@ -65,7 +85,7 @@ fn edit_005_delete_selected_text() {
 
 #[test]
 fn edit_006_change_selected_text() {
-    let mut editor = Editor::input("abcd");
+    let mut editor = Editor::input("abcd").expect("single-line fixture");
     editor.set_cursor(Position::new(0, 2));
     editor.enter_visual();
     editor.move_left();
@@ -115,7 +135,7 @@ fn edit_008_block_operators_preserve_rows() {
 #[test]
 fn edit_009_treat_joined_unicode_as_one_character() {
     let family = "👨‍👩‍👧‍👦";
-    let mut editor = Editor::input(format!("Ae\u{301}{family}Z"));
+    let mut editor = Editor::input(format!("Ae\u{301}{family}Z")).expect("single-line fixture");
     editor.move_right();
     editor.enter_visual();
     editor.move_right();
@@ -128,7 +148,7 @@ fn edit_009_treat_joined_unicode_as_one_character() {
 
 #[test]
 fn edit_010_deleting_at_boundaries_keeps_a_valid_cursor() {
-    let mut editor = Editor::input("abc");
+    let mut editor = Editor::input("abc").expect("single-line fixture");
     editor.set_cursor(Position::new(0, 2));
     assert!(editor.delete_at_cursor());
     assert_eq!(editor.text(), "ab");
@@ -141,6 +161,13 @@ fn edit_010_deleting_at_boundaries_keeps_a_valid_cursor() {
     assert!(editor.delete_at_cursor());
     assert_eq!(editor.text(), "");
     assert_eq!(editor.cursor(), Position::new(0, 0));
+
+    let mut editor = Editor::textarea("one\ntwo");
+    editor.set_cursor(Position::new(1, 0));
+    editor.enter_visual_line();
+    assert!(editor.delete_selection());
+    assert_eq!(editor.text(), "one\n");
+    assert_eq!(editor.cursor(), Position::new(0, 2));
 }
 
 fn block_editor() -> Editor {
