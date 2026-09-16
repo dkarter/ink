@@ -47,6 +47,38 @@ fn cfg_002_fall_back_to_home_config() {
     assert_eq!(config.theme, Some(ThemeName::SolarizedLight));
 }
 #[test]
+fn cfg_005_ignore_invalid_xdg_config_home() {
+    let temp = TempDir::new().expect("create test directory");
+
+    let home_config = write(
+        &temp,
+        "actual-home/.config/ink/config.toml",
+        "mystery = true",
+    );
+    write(&temp, "relative-xdg/ink/config.toml", "theme = \"nord\"\n");
+    write(&temp, "ink/config.toml", "theme = \"dracula\"\n");
+
+    for xdg_config_home in ["relative-xdg", ""] {
+        let output = Command::new(env!("CARGO_BIN_EXE_ink"))
+            .arg("input")
+            .current_dir(temp.path())
+            .env_clear()
+            .env("XDG_CONFIG_HOME", xdg_config_home)
+            .env("HOME", temp.path().join("actual-home"))
+            .output()
+            .expect("run ink");
+
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        let stderr = String::from_utf8(output.stderr).expect("stderr is UTF-8");
+        assert!(
+            stderr.contains(&home_config.display().to_string()),
+            "XDG_CONFIG_HOME={xdg_config_home:?} did not fall back to HOME: {stderr:?}"
+        );
+        assert!(stderr.contains("mystery"));
+    }
+}
+#[test]
 fn cfg_003_command_line_overrides_configuration() {
     let config = config::parse(
         Path::new("config.toml"),

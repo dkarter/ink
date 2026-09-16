@@ -18,7 +18,7 @@ Accepted values will be written cleanly to stdout. Interactive input and renderi
 
 ## Configuration
 
-Ink reads `$XDG_CONFIG_HOME/ink/config.toml`, or `$HOME/.config/ink/config.toml` when `XDG_CONFIG_HOME` is unset. Command-line options override matching values in the file.
+Ink reads `$XDG_CONFIG_HOME/ink/config.toml` when `XDG_CONFIG_HOME` is a non-empty absolute path. Otherwise, it reads `$HOME/.config/ink/config.toml`. Command-line options override matching values in the file.
 
 ```toml
 normal = true

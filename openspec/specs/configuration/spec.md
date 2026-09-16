@@ -8,7 +8,7 @@ Discover portable user configuration and combine it predictably with command-lin
 
 ### Requirement: Discover configuration through XDG paths
 
-Ink SHALL read configuration from `$XDG_CONFIG_HOME/ink/config.toml`, falling back to `$HOME/.config/ink/config.toml` when `XDG_CONFIG_HOME` is unset.
+Ink SHALL read configuration from `$XDG_CONFIG_HOME/ink/config.toml` when `XDG_CONFIG_HOME` is a non-empty absolute path, falling back to `$HOME/.config/ink/config.toml` otherwise.
 
 #### Scenario: Prefer XDG config home {#CFG-001}
 
@@ -21,6 +21,12 @@ Ink SHALL read configuration from `$XDG_CONFIG_HOME/ink/config.toml`, falling ba
 - GIVEN `XDG_CONFIG_HOME` is unset and `$HOME/.config/ink/config.toml` exists
 - WHEN Ink loads configuration
 - THEN that file supplies user defaults
+
+#### Scenario: Ignore invalid XDG config home {#CFG-005}
+
+- GIVEN `XDG_CONFIG_HOME` is empty or a relative path and the home fallback configuration exists
+- WHEN Ink loads configuration
+- THEN the home fallback file supplies user defaults
 
 ### Requirement: Apply explicit options last
 

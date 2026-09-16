@@ -7,8 +7,8 @@ description: Configuration discovery, syntax, and precedence for Ink.
 
 Ink looks for one user configuration file:
 
-1. `$XDG_CONFIG_HOME/ink/config.toml` when `XDG_CONFIG_HOME` is set
-2. `$HOME/.config/ink/config.toml` otherwise
+1. `$XDG_CONFIG_HOME/ink/config.toml` when `XDG_CONFIG_HOME` is a non-empty absolute path
+2. `$HOME/.config/ink/config.toml` when `XDG_CONFIG_HOME` is unset, empty, or relative
 
 When the XDG path is active, Ink will not also read the home fallback.
 

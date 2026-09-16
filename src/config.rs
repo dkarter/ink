@@ -23,8 +23,8 @@ impl ConfigPaths {
     pub fn from_env() -> Self {
         Self {
             xdg_config_home: env::var_os("XDG_CONFIG_HOME")
-                .filter(|value| !value.is_empty())
-                .map(PathBuf::from),
+                .map(PathBuf::from)
+                .filter(|path| path.is_absolute()),
             home: env::var_os("HOME")
                 .filter(|value| !value.is_empty())
                 .map(PathBuf::from),
