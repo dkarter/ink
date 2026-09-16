@@ -67,4 +67,4 @@ run = "cargo build --locked --release --bin ink && cargo run --quiet --locked --
 [tasks.ci]
 alias = "ci"
 description = "Run the same independent checks as GitHub CI in parallel"
-depends = ["fmt-check", "lint", "test", "openspec-check", "website-build", "workflow-check"]
+depends = ["fmt-check", "lint", "test", "openspec-check", "website-build", "workflow-check", "startup-bench"]
