@@ -28,8 +28,26 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
     steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Verify triggering commit is current main
+        id: verify
+        env:
+          TRIGGERING_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin refs/heads/main
+          if [[ "${TRIGGERING_SHA}" == "$(git rev-parse FETCH_HEAD)" ]]; then
+            echo "current=true" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Prepare release
         id: release
+        if: ${{ steps.verify.outputs.current == 'true' }}
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
 
   build-release:

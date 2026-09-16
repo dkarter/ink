@@ -11,23 +11,90 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
-  checks:
+  formatting:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install mise and project tools
+      - name: Install formatting tools
         # v4.3.0 is an immutable GitHub release.
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: rust dprint
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: Check formatting
+        run: mise run --skip-tools fmt-check
 
-      - name: Install Rust check components
-        run: rustup component add clippy rustfmt
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust
+        # v4.3.0 is an immutable GitHub release.
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: rust
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Lint Rust
+        run: mise run --skip-tools lint
 
-      - name: Run project CI
-        run: mise ci
+  rust-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust
+        # v4.3.0 is an immutable GitHub release.
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: rust
+      - name: Test Rust
+        run: mise run --skip-tools test
+
+  openspec-traceability:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install OpenSpec and Rust
+        # v4.3.0 is an immutable GitHub release.
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: rust node aube npm:@fission-ai/openspec
+      - name: Check OpenSpec traceability
+        run: mise run --skip-tools openspec-check
+
+  website-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install website tools
+        # v4.3.0 is an immutable GitHub release.
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: node aube
+      - name: Build website
+        run: mise run --skip-tools website-build
+
+  workflow-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install actionlint
+        # v4.3.0 is an immutable GitHub release.
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: aqua:rhysd/actionlint
+      - name: Validate workflows
+        run: mise run --skip-tools workflow-check
 
   startup-budget:
     runs-on: ubuntu-24.04
@@ -35,7 +102,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install Rust
+      - name: Install startup benchmark tools
         # v4.3.0 is an immutable GitHub release.
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:

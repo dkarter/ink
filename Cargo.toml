@@ -9,6 +9,7 @@ description = "A fast, composable terminal input prompt with Vim editing"
 [dependencies]
 crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
+syn = { version = "2", features = ["full"] }
 unicode-segmentation = "1.12"
 usage = { version = "6", package = "usage-rs", features = ["completions"] }
 

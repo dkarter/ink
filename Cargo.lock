@@ -248,6 +248,7 @@ version = "0.0.0"
 dependencies = [
  "crossterm",
  "ratatui",
+ "syn 2.0.119",
  "unicode-segmentation",
  "usage-rs",
 ]
