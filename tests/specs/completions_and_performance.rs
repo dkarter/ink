@@ -1,13 +1,16 @@
 use std::{
+    ffi::OsStr,
     fs,
-    path::{Path, PathBuf},
-    process::{Command, Output, Stdio},
+    io::Read,
+    path::PathBuf,
+    process::{Command, ExitCode, Output, Stdio},
     sync::atomic::{AtomicU64, Ordering},
-    time::Duration,
+    thread,
+    time::{Duration, Instant},
 };
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use ink::cli::{CliRuntime, PromptKind};
+use ink::startup_bench::{ENFORCE_BUDGET_ENV, SAMPLE_FIXTURE_ENV, SAMPLES, WARMUPS};
 
 static NEXT_TEMP_DIR: AtomicU64 = AtomicU64::new(0);
 
@@ -35,20 +38,85 @@ impl Drop for TempDir {
 }
 
 fn ink(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_ink"))
-        .args(args)
+    ink_command(args)
         .stdin(Stdio::null())
         .output()
         .expect("ink command should run")
 }
 
-fn executable(path: &Path, contents: &str) {
-    fs::write(path, contents).expect("test executable should be written");
-    let mut permissions = fs::metadata(path)
-        .expect("test executable metadata should be available")
-        .permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(path, permissions).expect("test executable should be executable");
+fn ink_command(args: &[&str]) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_ink"));
+    command.args(args);
+    command
+}
+
+fn ink_with_open_stdin(args: &[&str]) -> Output {
+    let mut child = ink_command(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("ink command should start");
+    let mut stdout = child.stdout.take().expect("ink stdout should be piped");
+    let mut stderr = child.stderr.take().expect("ink stderr should be piped");
+    let stdout_reader = thread::spawn(move || {
+        let mut output = Vec::new();
+        stdout
+            .read_to_end(&mut output)
+            .expect("ink stdout should be read");
+        output
+    });
+    let stderr_reader = thread::spawn(move || {
+        let mut output = Vec::new();
+        stderr
+            .read_to_end(&mut output)
+            .expect("ink stderr should be read");
+        output
+    });
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let status = loop {
+        if let Some(status) = child.try_wait().expect("ink status should be available") {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            child.kill().expect("blocked ink command should be killed");
+            child.wait().expect("killed ink command should be reaped");
+            panic!("ink blocked while generating completion with open stdin");
+        }
+        thread::sleep(Duration::from_millis(10));
+    };
+    Output {
+        status,
+        stdout: stdout_reader.join().expect("stdout reader should finish"),
+        stderr: stderr_reader.join().expect("stderr reader should finish"),
+    }
+}
+
+#[derive(Default)]
+struct RuntimeProbe {
+    stdout: String,
+    prompts: Vec<PromptKind>,
+    stdin_reads: usize,
+    terminal_opens: usize,
+}
+
+impl CliRuntime for RuntimeProbe {
+    fn write_stdout(&mut self, text: &str) {
+        self.stdout.push_str(text);
+    }
+
+    fn read_stdin(&mut self) {
+        self.stdin_reads += 1;
+    }
+
+    fn open_controlling_terminal(&mut self) {
+        self.terminal_opens += 1;
+    }
+
+    fn run_prompt(&mut self, kind: PromptKind) -> ExitCode {
+        self.prompts.push(kind);
+        ExitCode::SUCCESS
+    }
 }
 
 #[test]
@@ -72,36 +140,38 @@ fn comp_002_generate_a_portable_shell_completion() {
 #[test]
 fn comp_003_completion_generation_has_no_prompt_side_effects() {
     for shell in ["bash", "zsh", "fish", "nu"] {
-        let output = ink(&["completion", shell]);
+        let output = ink_with_open_stdin(&["completion", shell]);
         assert!(output.status.success(), "failed to generate {shell}");
         assert!(output.stderr.is_empty(), "unexpected stderr for {shell}");
         assert!(
             !output.stdout.contains(&b'\x1b'),
             "terminal control byte in {shell} completion"
         );
+
+        let mut runtime = RuntimeProbe::default();
+        let args = [OsStr::new("completion"), OsStr::new(shell)];
+        let status = ink::cli::run_from(&args, &mut runtime).expect("completion should parse");
+        assert_eq!(status, std::process::ExitCode::SUCCESS);
+        assert!(runtime.prompts.is_empty(), "completion entered prompt I/O");
+        assert_eq!(runtime.stdin_reads, 0, "completion read stdin");
+        assert_eq!(runtime.terminal_opens, 0, "completion opened a terminal");
+        assert_eq!(runtime.stdout.as_bytes(), output.stdout);
     }
 }
 
 #[test]
 fn perf_001_normal_startup_uses_compiled_tables() {
-    let temp = TempDir::new("compiled-cli");
-    let usage = temp.0.join("usage");
-    let marker = temp.0.join("usage-was-spawned");
-    executable(
-        &usage,
-        "#!/bin/sh\nprintf invoked > \"$INK_USAGE_MARKER\"\nexit 99\n",
-    );
-
-    for subcommand in ["input", "textarea"] {
-        Command::new(env!("CARGO_BIN_EXE_ink"))
-            .arg(subcommand)
-            .current_dir(&temp.0)
-            .env("PATH", &temp.0)
-            .env("INK_USAGE_MARKER", &marker)
-            .stdin(Stdio::null())
-            .output()
-            .expect("ink should parse without an external usage executable");
-        assert!(!marker.exists(), "normal parsing spawned external usage");
+    for (subcommand, expected) in [
+        ("input", PromptKind::Input),
+        ("textarea", PromptKind::Textarea),
+    ] {
+        let mut runtime = RuntimeProbe::default();
+        let args = [OsStr::new(subcommand)];
+        let status = ink::cli::run_from(&args, &mut runtime)
+            .expect("compiled static tables should parse the prompt command");
+        assert_eq!(status, std::process::ExitCode::SUCCESS);
+        assert_eq!(runtime.prompts, [expected]);
+        assert!(runtime.stdout.is_empty());
     }
 }
 
@@ -118,9 +188,13 @@ fn perf_002_startup_benchmark_uses_stable_sampling() {
         Duration::from_millis(70) + Duration::from_micros(500)
     );
 
+    let temp = TempDir::new("startup-protocol");
+    let fixture = temp.0.join("samples");
+    fs::write(&fixture, "1000000\n".repeat(WARMUPS + SAMPLES))
+        .expect("sample fixture should be written");
     let output = Command::new(env!("CARGO_BIN_EXE_startup-bench"))
-        .arg(env!("CARGO_BIN_EXE_ink"))
-        .env_remove("INK_ENFORCE_STARTUP_BUDGET")
+        .env(SAMPLE_FIXTURE_ENV, fixture)
+        .env_remove(ENFORCE_BUDGET_ENV)
         .output()
         .expect("startup benchmark should run");
     assert!(output.status.success());
@@ -131,14 +205,26 @@ fn perf_002_startup_benchmark_uses_stable_sampling() {
 
 #[test]
 fn perf_003_startup_stays_within_budget() {
-    let budget = Duration::from_millis(20);
-    assert!(!ink::startup_bench::budget_exceeded(
-        false,
-        budget + Duration::from_secs(1)
-    ));
-    assert!(!ink::startup_bench::budget_exceeded(true, budget));
-    assert!(ink::startup_bench::budget_exceeded(
-        true,
-        budget + Duration::from_nanos(1)
-    ));
+    let temp = TempDir::new("startup-budget");
+    let fixture = temp.0.join("samples");
+    fs::write(&fixture, "21000000\n".repeat(WARMUPS + SAMPLES))
+        .expect("sample fixture should be written");
+
+    let ordinary = Command::new(env!("CARGO_BIN_EXE_startup-bench"))
+        .env(SAMPLE_FIXTURE_ENV, &fixture)
+        .env_remove(ENFORCE_BUDGET_ENV)
+        .output()
+        .expect("unenforced startup benchmark should run");
+    assert!(ordinary.status.success());
+    assert!(String::from_utf8_lossy(&ordinary.stdout).contains("median: 21.000 ms"));
+
+    let enforced = Command::new(env!("CARGO_BIN_EXE_startup-bench"))
+        .env(SAMPLE_FIXTURE_ENV, &fixture)
+        .env(ENFORCE_BUDGET_ENV, "1")
+        .output()
+        .expect("enforced startup benchmark should run");
+    assert_eq!(enforced.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&enforced.stderr).contains("startup median exceeds 20.0 ms budget")
+    );
 }
