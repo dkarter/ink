@@ -83,7 +83,7 @@ impl Editor {
     }
 
     fn with_kind(text: String, kind: BufferKind) -> Self {
-        Self {
+        let mut editor = Self {
             text,
             cursor: Position::default(),
             mode: Mode::Normal,
@@ -93,7 +93,9 @@ impl Editor {
             preferred_display_column: None,
             insert_origin: None,
             insert_advanced: false,
-        }
+        };
+        editor.cursor = editor.normalized_position(editor.cursor);
+        editor
     }
 
     #[must_use]
@@ -117,7 +119,13 @@ impl Editor {
     }
 
     pub fn set_cursor(&mut self, position: Position) {
-        self.cursor = self.clamp_position(position, self.mode == Mode::Insert);
+        self.cursor = match self.mode {
+            Mode::Normal => self.normalized_position(position),
+            Mode::Insert => self.clamp_position(position, true),
+            Mode::Visual | Mode::VisualLine | Mode::VisualBlock => {
+                self.clamp_position(position, false)
+            }
+        };
         self.preferred_display_column = None;
     }
 
@@ -230,8 +238,9 @@ impl Editor {
         let start = self.selection_start();
         let ranges = self.selection_ranges();
         self.unnamed_register = self.text_for_ranges(&ranges);
+        let start = self.position_to_byte(start, false);
         self.clear_selection(Mode::Normal);
-        self.cursor = self.clamp_position(start, false);
+        self.cursor = self.normal_position_from_byte(start);
         true
     }
 
@@ -318,12 +327,27 @@ impl Editor {
             .preferred_display_column
             .unwrap_or_else(|| self.display_column(self.cursor));
         self.preferred_display_column = Some(display_column);
-        let line = self
+        let last_line = self.line_count().saturating_sub(1);
+        let mut line = self
             .cursor
             .line
             .saturating_add_signed(direction)
-            .min(self.line_count().saturating_sub(1));
-        self.cursor = self.position_at_display_column(line, display_column);
+            .min(last_line);
+        if self.mode == Mode::Normal {
+            while self.line_grapheme_count(line) == 0 {
+                let next = line.saturating_add_signed(direction).min(last_line);
+                if next == line {
+                    break;
+                }
+                line = next;
+            }
+        }
+        let position = self.position_at_display_column(line, display_column);
+        self.cursor = if self.mode == Mode::Normal && self.line_grapheme_count(line) == 0 {
+            self.normalized_position(position)
+        } else {
+            position
+        };
     }
 
     fn display_column(&self, position: Position) -> usize {
@@ -418,6 +442,10 @@ impl Editor {
             return self.clamp_position(self.position_from_byte(byte + relative), false);
         }
         Position::default()
+    }
+
+    fn normalized_position(&self, position: Position) -> Position {
+        self.normal_position_from_byte(self.position_to_byte(position, false))
     }
 
     fn line_count(&self) -> usize {

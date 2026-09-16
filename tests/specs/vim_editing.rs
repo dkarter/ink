@@ -168,6 +168,30 @@ fn edit_010_deleting_at_boundaries_keeps_a_valid_cursor() {
     assert!(editor.delete_selection());
     assert_eq!(editor.text(), "one\n");
     assert_eq!(editor.cursor(), Position::new(0, 2));
+
+    let mut trailing = Editor::textarea("a\n");
+    trailing.move_down();
+    assert_eq!(trailing.cursor(), Position::new(0, 0));
+    trailing.set_cursor(Position::new(1, 0));
+    assert_eq!(trailing.cursor(), Position::new(0, 0));
+
+    let mut intermediate = Editor::textarea("a\n\nb");
+    intermediate.move_down();
+    assert_eq!(intermediate.cursor(), Position::new(2, 0));
+    intermediate.set_cursor(Position::new(1, 0));
+    assert_eq!(intermediate.cursor(), Position::new(0, 0));
+
+    trailing.enter_insert();
+    trailing.move_down();
+    assert_eq!(trailing.cursor(), Position::new(1, 0));
+
+    let mut visual = Editor::textarea("\na");
+    assert_eq!(visual.cursor(), Position::new(1, 0));
+    visual.enter_visual_line();
+    visual.move_up();
+    assert_eq!(visual.cursor(), Position::new(0, 0));
+    assert!(visual.yank_selection());
+    assert_eq!(visual.cursor(), Position::new(1, 0));
 }
 
 fn block_editor() -> Editor {
