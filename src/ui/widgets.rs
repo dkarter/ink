@@ -1,10 +1,16 @@
-use ratatui::{buffer::Buffer, layout::Rect, style::Style, widgets::StatefulWidget};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Position, Rect},
+    style::Style,
+    widgets::StatefulWidget,
+};
 
 use crate::editor::Editor;
 
 use super::{
-    CursorRequest, Viewport, mode_label,
-    viewport::{display_width, slice_from_display_cell},
+    CursorRequest, Viewport,
+    display::{cursor_width, sanitized_prefix, slice_from_cell, text_width},
+    mode_label,
 };
 
 /// Rendering state retained by a single-line input.
@@ -52,8 +58,8 @@ impl StatefulWidget for Input<'_> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.cursor = None;
         let mode = mode_label(self.editor.mode());
-        let prompt_width = display_width(self.prompt);
-        let mode_width = display_width(mode);
+        let prompt_width = text_width(self.prompt);
+        let mode_width = text_width(mode);
         let available = usize::from(area.width);
         let (prompt, editor_width, mode_x) = if available >= prompt_width + mode_width + 2 {
             (
@@ -71,11 +77,21 @@ impl StatefulWidget for Input<'_> {
             (None, available, None)
         };
 
-        let editor_x = prompt.map_or(area.x, |value| {
-            render_text(value, 0, area.x, area.y, prompt_width, buf);
+        let editor_x = prompt.map_or(area.x, |_| {
             area.x
                 .saturating_add(u16::try_from(prompt_width).unwrap_or(u16::MAX))
         });
+        let cursor = self.editor.cursor();
+        let visible =
+            state
+                .viewport
+                .update(1, self.editor.text(), 0, cursor.column, editor_width, 1);
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+        if let Some(prompt) = prompt {
+            render_text(prompt, 0, area.x, area.y, prompt_width, buf);
+        }
         if let Some(x) = mode_x {
             render_text(
                 mode,
@@ -85,15 +101,6 @@ impl StatefulWidget for Input<'_> {
                 mode_width,
                 buf,
             );
-        }
-
-        let cursor = self.editor.cursor();
-        let visible =
-            state
-                .viewport
-                .update(1, self.editor.text(), 0, cursor.column, editor_width, 1);
-        if area.width == 0 || area.height == 0 {
-            return;
         }
         render_text(
             self.editor.text(),
@@ -153,6 +160,9 @@ impl StatefulWidget for Textarea<'_> {
         } else {
             area.height
         };
+        let mode = mode_label(self.editor.mode());
+        let mode_width = text_width(mode);
+        let available = usize::from(area.width);
         let cursor = self.editor.cursor();
         let line_count = self
             .editor
@@ -167,12 +177,23 @@ impl StatefulWidget for Textarea<'_> {
             .split('\n')
             .nth(cursor.line)
             .unwrap_or_default();
+        let minimum_editor_width = if area.height == 1 {
+            cursor_width(cursor_line, cursor.column)
+        } else {
+            1
+        };
+        let (text_width, inline_mode_x) =
+            if area.height == 1 && available > mode_width + minimum_editor_width {
+                (available - mode_width - 1, Some(available - mode_width))
+            } else {
+                (available, None)
+            };
         let visible = state.viewport.update(
             line_count,
             cursor_line,
             cursor.line,
             cursor.column,
-            usize::from(area.width),
+            text_width,
             usize::from(text_height),
         );
         if area.width == 0 || area.height == 0 {
@@ -193,19 +214,27 @@ impl StatefulWidget for Textarea<'_> {
                 area.x,
                 area.y
                     .saturating_add(u16::try_from(row).unwrap_or(u16::MAX)),
-                usize::from(area.width),
+                text_width,
                 buf,
             );
         }
 
         if area.height > 1 {
-            let mode = mode_label(self.editor.mode());
             render_text(
                 mode,
                 0,
                 area.x,
                 area.y.saturating_add(area.height - 1),
                 usize::from(area.width),
+                buf,
+            );
+        } else if let Some(x) = inline_mode_x {
+            render_text(
+                mode,
+                0,
+                area.x.saturating_add(u16::try_from(x).unwrap_or(u16::MAX)),
+                area.y,
+                mode_width,
                 buf,
             );
         }
@@ -220,14 +249,18 @@ impl StatefulWidget for Textarea<'_> {
 }
 
 fn render_text(text: &str, offset: usize, x: u16, y: u16, width: usize, buf: &mut Buffer) {
-    let (text, leading) = slice_from_display_cell(text, offset);
+    if width == 0 || !buf.area.contains(Position::new(x, y)) {
+        return;
+    }
+    let (text, leading) = slice_from_cell(text, offset);
     if leading >= width {
         return;
     }
+    let text = sanitized_prefix(text, width - leading);
     buf.set_stringn(
         x.saturating_add(u16::try_from(leading).unwrap_or(u16::MAX)),
         y,
-        text,
+        text.as_ref(),
         width - leading,
         Style::default(),
     );

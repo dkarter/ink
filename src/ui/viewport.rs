@@ -1,5 +1,6 @@
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
+
+use super::display::{boundary_at_or_after, grapheme_width};
 
 /// A textarea viewport measured in logical lines and terminal display cells.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -69,10 +70,6 @@ pub(crate) struct CursorInViewport {
     pub column: usize,
 }
 
-pub(crate) fn display_width(text: &str) -> usize {
-    text.graphemes(true).map(grapheme_width).sum()
-}
-
 fn line_metrics(line: &str, column: usize) -> (usize, usize, usize) {
     let mut cursor_start = 0;
     let mut cursor_width = 1;
@@ -82,35 +79,9 @@ fn line_metrics(line: &str, column: usize) -> (usize, usize, usize) {
         if index < column {
             cursor_start += width;
         } else if index == column {
-            cursor_width = width;
+            cursor_width = width.max(1);
         }
         total_width += width;
     }
     (cursor_start.min(total_width), cursor_width, total_width)
-}
-
-pub(crate) fn slice_from_display_cell(text: &str, offset: usize) -> (&str, usize) {
-    let mut position = 0;
-    for (byte, grapheme) in text.grapheme_indices(true) {
-        if position >= offset {
-            return (&text[byte..], position - offset);
-        }
-        position += grapheme_width(grapheme);
-    }
-    ("", 0)
-}
-
-fn boundary_at_or_after(text: &str, target: usize) -> usize {
-    let mut boundary = 0;
-    for grapheme in text.graphemes(true) {
-        if boundary >= target {
-            break;
-        }
-        boundary += grapheme_width(grapheme);
-    }
-    boundary
-}
-
-fn grapheme_width(grapheme: &str) -> usize {
-    UnicodeWidthStr::width(grapheme).max(1)
 }

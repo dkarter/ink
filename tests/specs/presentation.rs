@@ -43,7 +43,35 @@ fn ui_002_mode_indicator_names_every_mode() {
         let mut buffer = Buffer::empty(area);
         Textarea::new(&editor).render(area, &mut buffer, &mut state);
         assert_eq!(buffer_row(&buffer, area.bottom() - 1).trim(), expected);
+
+        let area = Rect::new(0, 0, 20, 1);
+        let mut buffer = Buffer::empty(area);
+        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+        assert!(buffer_row(&buffer, 0).contains(expected));
+        assert!(area.contains(state.cursor().unwrap().position));
+
+        let area = Rect::new(0, 0, u16::try_from(expected.len() + 1).unwrap(), 1);
+        let mut buffer = Buffer::empty(area);
+        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+        let row = buffer_row(&buffer, 0);
+        assert!(row.starts_with('t'));
+        assert!(!row.contains(expected));
+        assert!(area.contains(state.cursor().unwrap().position));
     }
+
+    let editor = Editor::textarea("界");
+    let mut state = TextareaState::default();
+    let area = Rect::new(0, 0, 8, 1);
+    let mut buffer = Buffer::empty(area);
+    Textarea::new(&editor).render(area, &mut buffer, &mut state);
+    assert_eq!(buffer.cell((0, 0)).unwrap().symbol(), "界");
+    assert!(!buffer_row(&buffer, 0).contains("NORMAL"));
+
+    let area = Rect::new(0, 0, 9, 1);
+    let mut buffer = Buffer::empty(area);
+    Textarea::new(&editor).render(area, &mut buffer, &mut state);
+    assert_eq!(buffer.cell((0, 0)).unwrap().symbol(), "界");
+    assert!(buffer_row(&buffer, 0).contains("NORMAL"));
 }
 
 #[test]
@@ -92,6 +120,43 @@ fn ui_004_textarea_scrolls_around_cursor() {
     assert!(usize::from(cursor.position.x) + 2 <= usize::from(area.width));
     assert_eq!(buffer.cell((0, 0)).unwrap().symbol(), " ");
     assert_eq!(buffer.cell((1, 0)).unwrap().symbol(), "x");
+
+    for (text, column, expected_text, expected_x) in [
+        ("\ta", 0, "a", 0),
+        ("\ta", 1, "a", 0),
+        ("\u{301}a", 0, "a", 0),
+        ("\u{301}a", 1, "a", 0),
+        ("a\tb", 2, "ab", 1),
+        ("a\u{7}b", 2, "ab", 1),
+    ] {
+        let mut editor = Editor::textarea(text);
+        editor.set_cursor(Position::new(0, column));
+        let mut state = TextareaState::default();
+        let area = Rect::new(0, 0, 4, 2);
+        let mut buffer = Buffer::empty(area);
+        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+
+        assert_eq!(buffer_row(&buffer, 0).trim_end(), expected_text);
+        assert_eq!(state.cursor().unwrap().position.x, expected_x);
+    }
+
+    for (text, expected_symbol, following_x) in [
+        ("\u{ff9e}b", "\u{ff9e}", 1),
+        ("\u{ff9f}b", "\u{ff9f}", 1),
+        ("ｶﾞb", "ｶﾞ", 2),
+        ("ﾊﾟb", "ﾊﾟ", 2),
+    ] {
+        let mut editor = Editor::textarea(text);
+        editor.set_cursor(Position::new(0, 1));
+        let mut state = TextareaState::default();
+        let area = Rect::new(0, 0, 4, 2);
+        let mut buffer = Buffer::empty(area);
+        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+
+        assert_eq!(buffer.cell((0, 0)).unwrap().symbol(), expected_symbol);
+        assert_eq!(buffer.cell((following_x, 0)).unwrap().symbol(), "b");
+        assert_eq!(state.cursor().unwrap().position.x, following_x);
+    }
 }
 
 #[test]
@@ -103,6 +168,8 @@ fn ui_005_resize_triggers_bounded_redraw() {
     for area in [
         Rect::new(4, 2, 20, 5),
         Rect::new(4, 2, 2, 2),
+        Rect::new(4, 2, 20, 0),
+        Rect::new(4, 2, 0, 20),
         Rect::new(4, 2, 0, 0),
         Rect::new(4, 2, 12, 4),
     ] {
@@ -125,6 +192,10 @@ fn ui_005_resize_triggers_bounded_redraw() {
     for area in [
         Rect::new(3, 1, 20, 1),
         Rect::new(3, 1, 1, 1),
+        Rect::new(3, 1, 20, 0),
+        Rect::new(3, 1, 1, 0),
+        Rect::new(3, 1, 0, 20),
+        Rect::new(3, 1, 0, 1),
         Rect::new(3, 1, 0, 0),
         Rect::new(3, 1, 12, 1),
     ] {
