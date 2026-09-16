@@ -6,19 +6,38 @@
 >
   <rect width="1200" height="630" fill="#f3eddf" />
   <path d="M0 82h1200M0 548h1200" stroke="#a9a493" />
-  <path
-    d="M790 86h280l56 56v402H790z"
+  <rect
+    x="760"
+    y="188"
+    width="360"
+    height="220"
+    rx="24"
     fill="#fffaf0"
     stroke="#17232f"
     stroke-width="8"
   />
   <path
-    d="M1070 86v60h56M880 412l142-142M976 270h46v46M850 447l30-35 20 20-50 15Z"
+    d="M830 272h86M830 340h132"
     fill="none"
     stroke="#315c9b"
-    stroke-width="12"
-    stroke-linejoin="round"
+    stroke-width="14"
+    stroke-linecap="square"
   />
+  <path
+    d="M1030 250v104"
+    fill="none"
+    stroke="#c34d3f"
+    stroke-width="18"
+    stroke-linecap="square"
+  />
+  <text
+    x="765"
+    y="466"
+    fill="#c34d3f"
+    font-family="monospace"
+    font-size="22"
+    letter-spacing="4"
+  >INSERT · BAR CURSOR</text>
   <text
     x="96"
     y="242"

@@ -16,9 +16,9 @@ const { size = 36, label } = Astro.props;
   aria-label={label}
   aria-hidden={label ? undefined : "true"}
 >
-  <path class="logo-frame" d="M8 7h40l8 8v42H8z" />
-  <path class="logo-fold" d="M48 7v9h8" />
-  <path class="logo-stroke" d="M22 43 40 25M34 25h6v6M19 47l3-4 2 2-5 2Z" />
+  <rect class="logo-frame" x="4" y="15" width="56" height="34" rx="6" />
+  <path class="logo-text" d="M14 27h13M14 37h20" />
+  <path class="logo-cursor" d="M44 24v16" />
 </svg>
 
 <style>
@@ -27,19 +27,20 @@ const { size = 36, label } = Astro.props;
   overflow: visible;
 }
 .logo-frame {
-  fill: var(--logo-paper, #f3eddf);
+  fill: var(--logo-paper, #fffaf0);
   stroke: var(--logo-ink, #17232f);
   stroke-width: 3;
-  stroke-linejoin: round;
 }
-.logo-fold, .logo-stroke {
+.logo-text, .logo-cursor {
   fill: none;
-  stroke: var(--logo-accent, #315c9b);
   stroke-width: 3;
   stroke-linecap: square;
-  stroke-linejoin: round;
 }
-.logo-fold {
-  stroke-width: 2;
+.logo-text {
+  stroke: var(--logo-accent, #315c9b);
+}
+.logo-cursor {
+  stroke: var(--logo-cursor, #c34d3f);
+  stroke-width: 4;
 }
 </style>
