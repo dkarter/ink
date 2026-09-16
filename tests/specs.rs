@@ -10,6 +10,7 @@ mod specs {
     mod command_line;
     mod completions_and_performance;
     mod configuration;
+    mod placeholders;
     mod presentation;
     mod terminal_io;
     mod themes;

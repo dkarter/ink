@@ -16,6 +16,22 @@ ink completion zsh > _ink
 
 Accepted values will be written cleanly to stdout. Interactive input and rendering will use the controlling terminal so piped initial values remain compatible with shell composition.
 
+### Planned placeholders (not implemented)
+
+Both prompt commands will accept `--placeholder <text>`. Input placeholders will be normalized to one line, while textarea placeholders may span multiple lines.
+
+```sh
+ink input --placeholder "Release title"
+ink textarea --placeholder $'Summary\n\nDetails'
+```
+
+Placeholders will use a dedicated `placeholder` theme color. The planned override uses the existing semantic color table:
+
+```toml
+[colors]
+placeholder = "#a9b1d6"
+```
+
 ## Configuration
 
 Ink reads `$XDG_CONFIG_HOME/ink/config.toml` when `XDG_CONFIG_HOME` is a non-empty absolute path. Otherwise, it reads `$HOME/.config/ink/config.toml`. Command-line options override matching values in the file.
@@ -36,7 +52,7 @@ mise install
 mise ci
 ```
 
-Product behavior is specified in [`openspec/specs`](openspec/specs). Every scenario has a stable ID and exactly one linked Rust test. Ignored tests in `tests/scenarios.rs` are explicit implementation placeholders, not claims of completed behavior.
+Product behavior is specified in [`openspec/specs`](openspec/specs). Every scenario has a stable ID and exactly one linked Rust test. Ignored tests in `tests/specs/` are explicit implementation placeholders, not claims of completed behavior.
 
 The documentation site lives in [`website`](website) and is built with Astro and Starlight.
 
