@@ -7,9 +7,7 @@ use std::{
     time::Instant,
 };
 
-const WARMUPS: usize = 20;
-const SAMPLES: usize = 100;
-const BUDGET_MS: f64 = 20.0;
+use ink::startup_bench::{BUDGET, SAMPLES, WARMUPS, budget_exceeded, measure};
 
 fn main() {
     let binary = env::args()
@@ -21,23 +19,19 @@ fn main() {
         std::process::exit(2);
     }
 
-    for _ in 0..WARMUPS {
-        probe(binary);
-    }
-
-    let mut samples = Vec::with_capacity(SAMPLES);
-    for _ in 0..SAMPLES {
+    let median = measure(|| {
         let started = Instant::now();
         probe(binary);
-        samples.push(started.elapsed());
-    }
-    samples.sort_unstable();
-    let median_ms =
-        (samples[SAMPLES / 2 - 1].as_secs_f64() + samples[SAMPLES / 2].as_secs_f64()) * 500.0;
+        started.elapsed()
+    });
+    let median_ms = median.as_secs_f64() * 1_000.0;
     println!("ink --version median: {median_ms:.3} ms ({WARMUPS} warmups, {SAMPLES} samples)");
 
-    if env::var_os("INK_ENFORCE_STARTUP_BUDGET").is_some() && median_ms > BUDGET_MS {
-        eprintln!("startup median exceeds {BUDGET_MS:.1} ms budget");
+    if budget_exceeded(env::var_os("INK_ENFORCE_STARTUP_BUDGET").is_some(), median) {
+        eprintln!(
+            "startup median exceeds {:.1} ms budget",
+            BUDGET.as_secs_f64() * 1_000.0
+        );
         std::process::exit(1);
     }
 }
