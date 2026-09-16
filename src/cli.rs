@@ -75,6 +75,23 @@ pub trait CliRuntime {
     fn run_prompt(&mut self, kind: PromptKind) -> ExitCode;
 }
 
+/// Validated settings and palette ready for the prompt runtime.
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResolvedPromptOptions {
+    pub settings: Settings,
+    pub theme: theme::ResolvedTheme,
+}
+
+/// Resolve all configuration that the prompt runtime will receive.
+#[doc(hidden)]
+#[must_use]
+pub fn resolve_prompt_options(config: &config::Config, cli: &CliOptions) -> ResolvedPromptOptions {
+    let settings = Settings::resolve(config, cli);
+    let theme = theme::resolve(settings.theme, &config.colors);
+    ResolvedPromptOptions { settings, theme }
+}
+
 struct ProcessRuntime;
 
 impl CliRuntime for ProcessRuntime {
@@ -132,9 +149,8 @@ fn dispatch_prompt(prompt: Prompt, kind: PromptKind, runtime: &mut impl CliRunti
         normal: prompt.normal.then_some(true),
         theme,
     };
-    let settings = Settings::resolve(&config, &cli_options);
-    let resolved_theme = theme::resolve(settings.theme, &config.colors);
-    let _ = (prompt.value, settings, resolved_theme);
+    let resolved_options = resolve_prompt_options(&config, &cli_options);
+    let _ = (prompt.value, resolved_options);
     runtime.run_prompt(kind)
 }
 

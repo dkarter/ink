@@ -76,6 +76,7 @@ pub enum ColorRole {
     Accent,
     Border,
     Selection,
+    SelectionForeground,
     Cursor,
     InsertMode,
     NormalMode,
@@ -85,13 +86,14 @@ pub enum ColorRole {
 }
 
 impl ColorRole {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Foreground,
         Self::Background,
         Self::Muted,
         Self::Accent,
         Self::Border,
         Self::Selection,
+        Self::SelectionForeground,
         Self::Cursor,
         Self::InsertMode,
         Self::NormalMode,
@@ -109,6 +111,7 @@ impl ColorRole {
             Self::Accent => "accent",
             Self::Border => "border",
             Self::Selection => "selection",
+            Self::SelectionForeground => "selection-foreground",
             Self::Cursor => "cursor",
             Self::InsertMode => "insert-mode",
             Self::NormalMode => "normal-mode",
@@ -156,6 +159,7 @@ pub struct Palette {
     pub accent: Color,
     pub border: Color,
     pub selection: Color,
+    pub selection_foreground: Color,
     pub cursor: Color,
     pub insert_mode: Color,
     pub normal_mode: Color,
@@ -174,6 +178,7 @@ impl Palette {
             ColorRole::Accent => self.accent,
             ColorRole::Border => self.border,
             ColorRole::Selection => self.selection,
+            ColorRole::SelectionForeground => self.selection_foreground,
             ColorRole::Cursor => self.cursor,
             ColorRole::InsertMode => self.insert_mode,
             ColorRole::NormalMode => self.normal_mode,
@@ -191,6 +196,7 @@ impl Palette {
             ColorRole::Accent => self.accent = color,
             ColorRole::Border => self.border = color,
             ColorRole::Selection => self.selection = color,
+            ColorRole::SelectionForeground => self.selection_foreground = color,
             ColorRole::Cursor => self.cursor = color,
             ColorRole::InsertMode => self.insert_mode = color,
             ColorRole::NormalMode => self.normal_mode = color,

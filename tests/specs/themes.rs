@@ -6,6 +6,38 @@ use ink::{
 };
 use tempfile::TempDir;
 
+const REQUIRED_THEME_NAMES: [&str; 10] = [
+    "tokyo-night",
+    "catppuccin-latte",
+    "catppuccin-frappe",
+    "catppuccin-macchiato",
+    "catppuccin-mocha",
+    "dracula",
+    "gruvbox-dark",
+    "nord",
+    "solarized-dark",
+    "solarized-light",
+];
+
+fn contrast_ratio(foreground: Color, background: Color) -> f64 {
+    fn luminance(color: Color) -> f64 {
+        fn linear(channel: u8) -> f64 {
+            let channel = f64::from(channel) / 255.0;
+            if channel <= 0.04045 {
+                channel / 12.92
+            } else {
+                ((channel + 0.055) / 1.055).powf(2.4)
+            }
+        }
+
+        0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue)
+    }
+
+    let foreground = luminance(foreground);
+    let background = luminance(background);
+    (foreground.max(background) + 0.05) / (foreground.min(background) + 0.05)
+}
+
 #[test]
 fn theme_001_use_default_theme() {
     let config = Config::default();
@@ -16,8 +48,11 @@ fn theme_001_use_default_theme() {
 }
 #[test]
 fn theme_002_select_every_bundled_theme() {
+    assert_eq!(ThemeName::ALL.map(ThemeName::as_str), REQUIRED_THEME_NAMES);
+
     let mut palettes = Vec::new();
-    for name in ThemeName::ALL {
+    for canonical_name in REQUIRED_THEME_NAMES {
+        let name = canonical_name.parse::<ThemeName>().expect("required theme");
         let resolved = theme::resolve(name, &Default::default());
 
         assert_eq!(resolved.name, name);
@@ -33,21 +68,57 @@ fn theme_002_select_every_bundled_theme() {
 
         assert_eq!(name.as_str().parse::<ThemeName>(), Ok(name));
         assert_eq!(name.as_str().to_ascii_uppercase().parse(), Ok(name));
+
+        let palette = resolved.palette;
+        for (combination, foreground, background) in [
+            (
+                "foreground/background",
+                palette.foreground,
+                palette.background,
+            ),
+            ("muted/background", palette.muted, palette.background),
+            ("accent/background", palette.accent, palette.background),
+            (
+                "insert-mode/background",
+                palette.insert_mode,
+                palette.background,
+            ),
+            (
+                "normal-mode/background",
+                palette.normal_mode,
+                palette.background,
+            ),
+            (
+                "visual-mode/background",
+                palette.visual_mode,
+                palette.background,
+            ),
+            ("error/background", palette.error, palette.background),
+            ("warning/background", palette.warning, palette.background),
+            (
+                "selection-foreground/selection",
+                palette.selection_foreground,
+                palette.selection,
+            ),
+        ] {
+            let ratio = contrast_ratio(foreground, background);
+            assert!(
+                ratio >= 4.5,
+                "{canonical_name} {combination} contrast {ratio:.2}:1 is below 4.5:1"
+            );
+        }
     }
 }
 #[test]
 fn theme_003_command_line_theme_wins() {
-    let config = Config {
-        theme: Some(ThemeName::Dracula),
-        ..Config::default()
-    };
+    let config = config::parse(Path::new("config.toml"), "theme = \"dracula\"\n")
+        .expect("parse configured theme");
     let cli = CliOptions {
-        theme: Some(ThemeName::Nord),
+        theme: Some("NoRd".parse().expect("parse --theme value")),
         ..CliOptions::default()
     };
 
-    let settings = ink::config::Settings::resolve(&config, &cli);
-    let resolved = theme::resolve(settings.theme, &config.colors);
+    let resolved = ink::cli::resolve_prompt_options(&config, &cli).theme;
 
     assert_eq!(resolved.name, ThemeName::Nord);
     let nord = theme::resolve(ThemeName::Nord, &Default::default());
