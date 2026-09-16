@@ -7,28 +7,21 @@
   <rect width="1200" height="630" fill="#f3eddf" />
   <path d="M0 82h1200M0 548h1200" stroke="#a9a493" />
   <rect
-    x="760"
-    y="188"
-    width="360"
-    height="220"
-    rx="24"
+    x="820"
+    y="150"
+    width="250"
+    height="250"
+    rx="76"
     fill="#fffaf0"
     stroke="#17232f"
     stroke-width="8"
   />
   <path
-    d="M830 272h86M830 340h132"
+    d="M895 215v120"
     fill="none"
     stroke="#315c9b"
-    stroke-width="14"
-    stroke-linecap="square"
-  />
-  <path
-    d="M1030 250v104"
-    fill="none"
-    stroke="#c34d3f"
-    stroke-width="18"
-    stroke-linecap="square"
+    stroke-width="24"
+    stroke-linecap="round"
   />
   <text
     x="765"
@@ -37,7 +30,7 @@
     font-family="monospace"
     font-size="22"
     letter-spacing="4"
-  >INSERT · BAR CURSOR</text>
+  >INSERT · PIPE CURSOR</text>
   <text
     x="96"
     y="242"
