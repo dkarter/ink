@@ -7,9 +7,12 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
+mod panic_hook;
 mod process;
 
 pub use process::ProcessIo;
+#[doc(hidden)]
+pub use process::{ConsoleMode, HandleRawMode};
 
 const SAVE_POSITION: &[u8] = b"\x1b7";
 const RESTORE_POSITION: &[u8] = b"\x1b8";
@@ -18,8 +21,7 @@ const HIDE_CURSOR: &[u8] = b"\x1b[?25l";
 const SHOW_CURSOR: &[u8] = b"\x1b[?25h";
 const DEFAULT_CURSOR: &[u8] = b"\x1b[0 q";
 const NO_TTY_DIAGNOSTIC: &str = "ink: no controlling terminal available\n";
-
-static PANIC_HOOK_LOCK: Mutex<()> = Mutex::new(());
+static SESSION_LOCK: Mutex<()> = Mutex::new(());
 
 /// Stable process statuses shared by prompt orchestration and the final CLI.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -87,29 +89,20 @@ pub trait RuntimeIo {
 /// Access to interactive input and UI output during a prompt.
 pub struct TerminalSession {
     restoration: Arc<Restoration>,
-    previous_hook: Arc<dyn Fn(&panic::PanicHookInfo<'_>) + Send + Sync>,
-    _hook_lock: MutexGuard<'static, ()>,
+    _panic_registration: panic_hook::Registration,
+    _session_lock: MutexGuard<'static, ()>,
 }
 
 impl TerminalSession {
     fn start(device: Arc<dyn TerminalDevice>) -> io::Result<Self> {
-        let hook_lock = PANIC_HOOK_LOCK
+        let session_lock = SESSION_LOCK
             .lock()
             .unwrap_or_else(|error| error.into_inner());
-        let previous_hook: Arc<dyn Fn(&panic::PanicHookInfo<'_>) + Send + Sync> =
-            Arc::from(panic::take_hook());
         let restoration = Arc::new(Restoration::new(device));
-        let panic_restoration = Arc::clone(&restoration);
-        let chained_hook = Arc::clone(&previous_hook);
-        panic::set_hook(Box::new(move |information| {
-            let _ = panic_restoration.restore();
-            chained_hook(information);
-        }));
-
         let session = Self {
+            _panic_registration: panic_hook::register(Arc::clone(&restoration)),
             restoration,
-            previous_hook,
-            _hook_lock: hook_lock,
+            _session_lock: session_lock,
         };
         match panic::catch_unwind(AssertUnwindSafe(|| session.restoration.enter())) {
             Ok(Ok(())) => Ok(session),
@@ -157,11 +150,6 @@ impl TerminalSession {
 impl Drop for TerminalSession {
     fn drop(&mut self) {
         let _ = self.restoration.restore();
-        if !std::thread::panicking() {
-            let previous_hook = Arc::clone(&self.previous_hook);
-            let _ = panic::take_hook();
-            panic::set_hook(Box::new(move |information| previous_hook(information)));
-        }
     }
 }
 
@@ -333,13 +321,19 @@ where
     };
 
     let outcome = panic::catch_unwind(AssertUnwindSafe(|| prompt(&mut session, &seed)));
-    if let Err(error) = session.restore() {
-        return runtime_failure(io, &format!("terminal restoration failed: {error}"));
-    }
+    let restoration = session.restore();
     drop(session);
 
+    let outcome = match outcome {
+        Ok(outcome) => outcome,
+        Err(payload) => panic::resume_unwind(payload),
+    };
+    if let Err(error) = restoration {
+        return runtime_failure(io, &format!("terminal restoration failed: {error}"));
+    }
+
     match outcome {
-        Ok(Ok(PromptOutcome::Accepted(mut value))) => {
+        Ok(PromptOutcome::Accepted(mut value)) => {
             value.push('\n');
             if io.write_stdout(value.as_bytes()).is_err() {
                 ExitStatus::RuntimeFailure
@@ -347,9 +341,8 @@ where
                 ExitStatus::Accepted
             }
         }
-        Ok(Ok(PromptOutcome::Cancelled(_))) => ExitStatus::Cancelled,
-        Ok(Err(error)) => runtime_failure(io, &format!("prompt failed: {error}")),
-        Err(payload) => panic::resume_unwind(payload),
+        Ok(PromptOutcome::Cancelled(_)) => ExitStatus::Cancelled,
+        Err(error) => runtime_failure(io, &format!("prompt failed: {error}")),
     }
 }
 

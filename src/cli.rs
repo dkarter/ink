@@ -4,6 +4,7 @@ use std::{ffi::OsStr, process::ExitCode};
 
 use crate::{
     config::{self, CliOptions, ConfigPaths, Settings, ThemeName},
+    terminal::ExitStatus,
     theme,
 };
 use usage::{Args, Cli, Subcommands};
@@ -135,7 +136,7 @@ fn dispatch_prompt(prompt: Prompt, kind: PromptKind, runtime: &mut impl CliRunti
         Ok(theme) => theme,
         Err(error) => {
             eprintln!("invalid command-line setting `--theme`: {error}");
-            return ExitCode::FAILURE;
+            return ExitStatus::UsageError.into();
         }
     };
     let config = match config::load(&ConfigPaths::from_env()) {

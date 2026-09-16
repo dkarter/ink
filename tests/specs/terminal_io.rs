@@ -1,11 +1,19 @@
 use std::{
     io,
     panic::{self, AssertUnwindSafe},
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use ink::terminal::{
-    CancelReason, CursorShape, ExitStatus, PromptOutcome, RuntimeIo, TerminalDevice, run_prompt,
+    CancelReason, ConsoleMode, CursorShape, ExitStatus, HandleRawMode, PromptOutcome, RuntimeIo,
+    TerminalDevice, run_prompt,
+};
+use ink::{
+    cli::{CliRuntime, PromptKind},
+    terminal,
 };
 
 const ENTER_BYTES: &[u8] = b"\x1b7\x1b[?25l";
@@ -38,8 +46,8 @@ impl FakeDevice {
         self.0.lock().unwrap().calls.clone()
     }
 
-    fn fail_disable_once(&self) {
-        self.0.lock().unwrap().disable_failures = 1;
+    fn fail_disable(&self, attempts: usize) {
+        self.0.lock().unwrap().disable_failures = attempts;
     }
 }
 
@@ -192,6 +200,34 @@ fn io_004_exit_statuses_identify_outcomes() {
     assert_eq!(ExitStatus::UsageError.code(), 2);
     assert_eq!(ExitStatus::RuntimeFailure.code(), 1);
     assert_eq!(ExitStatus::Cancelled.code(), 130);
+
+    struct UnreachedRuntime;
+
+    impl CliRuntime for UnreachedRuntime {
+        fn write_stdout(&mut self, _: &str) {
+            unreachable!()
+        }
+
+        fn read_stdin(&mut self) {
+            unreachable!()
+        }
+
+        fn open_controlling_terminal(&mut self) {
+            unreachable!()
+        }
+
+        fn run_prompt(&mut self, _: PromptKind) -> std::process::ExitCode {
+            unreachable!()
+        }
+    }
+
+    let args = [
+        std::ffi::OsStr::new("input"),
+        std::ffi::OsStr::new("--theme"),
+        std::ffi::OsStr::new("not-a-theme"),
+    ];
+    let status = ink::cli::run_from(&args, &mut UnreachedRuntime).unwrap();
+    assert_eq!(status, terminal::ExitStatus::UsageError.into());
 }
 
 #[test]
@@ -240,7 +276,7 @@ fn io_006_restore_after_every_ordinary_outcome() {
     }
 
     let device = Arc::new(FakeDevice::default());
-    device.fail_disable_once();
+    device.fail_disable(1);
     let mut io = FakeIo::interactive(Arc::clone(&device));
     let status = run_prompt(&mut io, None, |_, _| {
         Ok(PromptOutcome::Accepted("value".into()))
@@ -256,6 +292,36 @@ fn io_006_restore_after_every_ordinary_outcome() {
             .count(),
         2
     );
+
+    struct FakeConsole {
+        mode: Arc<Mutex<u32>>,
+        changes: Arc<Mutex<Vec<u32>>>,
+    }
+
+    impl ConsoleMode for FakeConsole {
+        fn mode(&self) -> io::Result<u32> {
+            Ok(*self.mode.lock().unwrap())
+        }
+
+        fn set_mode(&self, mode: u32) -> io::Result<()> {
+            *self.mode.lock().unwrap() = mode;
+            self.changes.lock().unwrap().push(mode);
+            Ok(())
+        }
+    }
+
+    let mode = Arc::new(Mutex::new(0x01f7));
+    let changes = Arc::new(Mutex::new(Vec::new()));
+    let raw_mode = HandleRawMode::new(FakeConsole {
+        mode: Arc::clone(&mode),
+        changes: Arc::clone(&changes),
+    });
+    raw_mode.enable().unwrap();
+    raw_mode.enable().unwrap();
+    raw_mode.disable().unwrap();
+
+    assert_eq!(*mode.lock().unwrap(), 0x01f7);
+    assert_eq!(*changes.lock().unwrap(), [0x01f0, 0x01f7]);
 }
 
 #[test]
@@ -273,4 +339,67 @@ fn io_007_restore_after_panic() {
     assert!(panic.is_err());
     assert!(device.bytes().ends_with(RESTORE_BYTES));
     assert_eq!(device.calls().last(), Some(&"disable_raw"));
+
+    let device = Arc::new(FakeDevice::default());
+    let mut io = FakeIo::interactive(Arc::clone(&device));
+    let status = run_prompt(&mut io, None, |session, _| {
+        session.set_cursor_shape(CursorShape::Bar)?;
+        assert!(
+            std::thread::spawn(|| panic!("worker panic"))
+                .join()
+                .is_err()
+        );
+        assert!(!device.bytes().ends_with(RESTORE_BYTES));
+        Ok(PromptOutcome::Cancelled(CancelReason::Interrupt))
+    });
+
+    assert_eq!(status, ExitStatus::Cancelled);
+    assert!(device.bytes().ends_with(RESTORE_BYTES));
+
+    let device = Arc::new(FakeDevice::default());
+    device.fail_disable(2);
+    let mut io = FakeIo::interactive(Arc::clone(&device));
+    let panic = panic::catch_unwind(AssertUnwindSafe(|| {
+        run_prompt(&mut io, None, |_, _| -> io::Result<PromptOutcome> {
+            panic!("original prompt panic")
+        });
+    }))
+    .expect_err("the original prompt panic must be resumed");
+
+    assert_eq!(panic.downcast_ref::<&str>(), Some(&"original prompt panic"));
+    assert!(io.stderr.is_empty());
+    assert!(io.stdout.is_empty());
+    assert_eq!(
+        device
+            .calls()
+            .iter()
+            .filter(|call| **call == "disable_raw")
+            .count(),
+        3
+    );
+
+    type Hook = Arc<dyn Fn(&panic::PanicHookInfo<'_>) + Send + Sync>;
+
+    let device = Arc::new(FakeDevice::default());
+    let mut io = FakeIo::interactive(device);
+    let later_hook_calls = Arc::new(AtomicUsize::new(0));
+    let saved_dispatcher: Arc<Mutex<Option<Hook>>> = Arc::new(Mutex::new(None));
+    let status = run_prompt(&mut io, None, |_, _| {
+        let dispatcher: Hook = Arc::from(panic::take_hook());
+        *saved_dispatcher.lock().unwrap() = Some(Arc::clone(&dispatcher));
+        let calls = Arc::clone(&later_hook_calls);
+        panic::set_hook(Box::new(move |information| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            dispatcher(information);
+        }));
+        Ok(PromptOutcome::Cancelled(CancelReason::Interrupt))
+    });
+    let reported = panic::catch_unwind(|| panic!("after session teardown"));
+    let _later_hook = panic::take_hook();
+    let dispatcher = saved_dispatcher.lock().unwrap().take().unwrap();
+    panic::set_hook(Box::new(move |information| dispatcher(information)));
+
+    assert_eq!(status, ExitStatus::Cancelled);
+    assert!(reported.is_err());
+    assert_eq!(later_hook_calls.load(Ordering::SeqCst), 1);
 }
