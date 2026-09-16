@@ -1,0 +1,45 @@
+---
+interface Props {
+  size?: number;
+  label?: string;
+}
+
+const { size = 36, label } = Astro.props;
+---
+
+<svg
+  class="ink-logo"
+  width={size}
+  height={size}
+  viewBox="0 0 64 64"
+  role={label ? "img" : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : "true"}
+>
+  <path class="logo-frame" d="M8 7h40l8 8v42H8z" />
+  <path class="logo-fold" d="M48 7v9h8" />
+  <path class="logo-stroke" d="M22 43 40 25M34 25h6v6M19 47l3-4 2 2-5 2Z" />
+</svg>
+
+<style>
+.ink-logo {
+  display: block;
+  overflow: visible;
+}
+.logo-frame {
+  fill: var(--logo-paper, #f3eddf);
+  stroke: var(--logo-ink, #17232f);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.logo-fold, .logo-stroke {
+  fill: none;
+  stroke: var(--logo-accent, #315c9b);
+  stroke-width: 3;
+  stroke-linecap: square;
+  stroke-linejoin: round;
+}
+.logo-fold {
+  stroke-width: 2;
+}
+</style>

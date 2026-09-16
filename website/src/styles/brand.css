@@ -1,0 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap");
+
+:root {
+  --brand-navy: #17232f;
+  --brand-navy-soft: #21313e;
+  --brand-paper: #f3eddf;
+  --brand-paper-bright: #fffaf0;
+  --brand-blue: #315c9b;
+  --brand-red: #c34d3f;
+  --brand-rule: #a9a493;
+  --brand-muted: #6d706b;
+  --brand-serif: Newsreader, Georgia, serif;
+  --brand-mono: "IBM Plex Mono", monospace;
+}

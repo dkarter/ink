@@ -1,0 +1,8 @@
+/target/
+/.mise/
+/.playwright-mcp/
+/website/.astro/
+/website/dist/
+/website/node_modules/
+.DS_Store
+!.herdr-worktree.yaml

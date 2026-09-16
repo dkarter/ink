@@ -1,0 +1,70 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+[shell_alias]
+ink = "cargo run --bin ink --"
+
+[tools]
+"aqua:rhysd/actionlint" = "1.7.12"
+"github:crate-ci/committed" = "latest"
+"npm:@fission-ai/openspec" = { version = "1.13.0", allow_builds = false }
+aube = "2.2.12"
+dprint = "0.57.4"
+fnox = "latest"
+gitleaks = "latest"
+lefthook = "latest"
+mr-boxington = "1.11.0"
+node = "24"
+pitchfork = "latest"
+ripgrep = "latest"
+rust = { version = "1.98.0", mr_boxington = true }
+
+[settings]
+npm.package_manager = "aube"
+
+[hooks]
+postinstall = "lefthook install"
+
+[env]
+DO_NOT_TRACK = "1"
+OPENSPEC_TELEMETRY = "0"
+
+[tasks.fmt]
+description = "Format Rust, documentation, configuration, and website sources"
+run = "cargo fmt --all && dprint fmt"
+
+[tasks.fmt-check]
+description = "Check formatting without modifying files"
+run = "cargo fmt --all -- --check && dprint check"
+
+[tasks.lint]
+description = "Lint all Rust targets with warnings denied"
+run = "cargo clippy --all-targets --all-features --locked -- -D warnings"
+
+[tasks.test]
+description = "Run all implemented Rust tests"
+run = "cargo test --all-targets --all-features --locked"
+
+[tasks.openspec-check]
+description = "Strictly validate OpenSpec and bidirectional test links"
+run = "openspec validate --all --strict --no-interactive && cargo run --quiet --locked --bin spec-links -- ."
+
+[tasks.website-build]
+description = "Install locked website dependencies, type-check, and build"
+run = "aube --dir website install --frozen-lockfile && aube --dir website run build"
+
+[tasks.website-dev]
+description = "Start the website development server"
+run = "aube --dir website run dev"
+
+[tasks.workflow-check]
+description = "Validate GitHub Actions workflows"
+run = "actionlint"
+
+[tasks.startup-bench]
+description = "Measure prebuilt release startup using the specified stable protocol"
+run = "cargo build --locked --release --bin ink && cargo run --quiet --locked --release --bin startup-bench -- target/release/ink"
+
+[tasks.ci]
+alias = "ci"
+description = "Run the same independent checks as GitHub CI in parallel"
+depends = ["fmt-check", "lint", "test", "openspec-check", "website-build", "workflow-check"]

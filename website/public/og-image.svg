@@ -1,0 +1,53 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1200"
+  height="630"
+  viewBox="0 0 1200 630"
+>
+  <rect width="1200" height="630" fill="#f3eddf" />
+  <path d="M0 82h1200M0 548h1200" stroke="#a9a493" />
+  <path
+    d="M790 86h280l56 56v402H790z"
+    fill="#fffaf0"
+    stroke="#17232f"
+    stroke-width="8"
+  />
+  <path
+    d="M1070 86v60h56M880 412l142-142M976 270h46v46M850 447l30-35 20 20-50 15Z"
+    fill="none"
+    stroke="#315c9b"
+    stroke-width="12"
+    stroke-linejoin="round"
+  />
+  <text
+    x="96"
+    y="242"
+    fill="#17232f"
+    font-family="Georgia,serif"
+    font-size="134"
+    font-weight="600"
+  >ink</text>
+  <text
+    x="102"
+    y="310"
+    fill="#315c9b"
+    font-family="monospace"
+    font-size="24"
+    letter-spacing="3"
+  >VIM-STYLE PROMPTS</text>
+  <text
+    x="102"
+    y="394"
+    fill="#596069"
+    font-family="Georgia,serif"
+    font-size="37"
+  >Edit before you commit.</text>
+  <text
+    x="102"
+    y="506"
+    fill="#c34d3f"
+    font-family="monospace"
+    font-size="18"
+    letter-spacing="2"
+  >EARLY DEVELOPMENT</text>
+</svg>

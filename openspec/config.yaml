@@ -1,0 +1,29 @@
+schema: spec-driven
+
+context: |
+  Project: Ink, a fast composable terminal input prompt built with Rust,
+  Ratatui, and Crossterm.
+
+  Tests: Rust unit and integration tests run with Cargo. Test function names
+  begin with lowercase OpenSpec scenario IDs, replacing hyphens with
+  underscores. Ignored scenario stubs make deferred bootstrap behavior
+  explicit while preserving traceability.
+
+  Conventions: use safe idiomatic Rust, edit by grapheme cluster, restore the
+  terminal on every exit path, render through the controlling terminal, and
+  reserve stdout for accepted values.
+
+rules:
+  proposal:
+    - Keep proposals focused on one user-facing capability.
+    - State terminal, compatibility, and startup-performance risks explicitly.
+  design:
+    - Identify CLI, editor, terminal, test, and documentation ownership.
+    - Prefer deterministic state-machine tests over timing or terminal-dependent tests.
+  tasks:
+    - Include tests for observable behavior changes.
+    - Include interactive TUI verification for terminal UI changes.
+  specs:
+    - Use Given/When/Then scenarios.
+    - Give every scenario one stable ID such as `{#EDIT-001}`.
+    - Start linked Rust test names with the lowercase ID using underscores.

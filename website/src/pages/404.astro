@@ -1,0 +1,26 @@
+---
+import Logo from "../components/Logo.astro";
+import "../styles/site.css";
+const base = `${import.meta.env.BASE_URL.replace(/[/]$/, "")}/`;
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="robots" content="noindex" />
+    <title>Page not found · ink</title>
+    <link rel="icon" href={`${base}favicon.svg`} />
+  </head>
+  <body class="not-found">
+    <main>
+      <Logo size={60} /><p class="section-mark">404 / BLANK PAGE</p>
+      <h1>Nothing written here.</h1>
+      <p>The page may have moved, but the field notes are close by.</p>
+      <div class="actions">
+        <a class="primary" href={`${base}docs/`}>Open the docs <span
+          >→</span></a><a href={base}>Return home</a>
+      </div>
+    </main>
+  </body>
+</html>

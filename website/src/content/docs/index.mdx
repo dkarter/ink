@@ -1,0 +1,52 @@
+---
+title: Ink
+description: Design notes for a composable Vim-style terminal prompt editor.
+template: splash
+hero:
+  tagline: A planned Vim-style editor for values that need one more pass before they enter a shell pipeline.
+  actions:
+    - text: Read the quick start
+      link: ./quick-start/
+      icon: right-arrow
+    - text: Follow on GitHub
+      link: https://github.com/dkarter/ink
+      variant: minimal
+banner:
+  content: "Development status: Ink is a bootstrap project. Prompt editing is not implemented and there is no supported release yet."
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Ink is intended to add a compact interactive editing step to terminal workflows. The design reserves standard output for the accepted value while the interface talks directly to the controlling terminal.
+
+<CardGrid>
+  <Card title="Single-line input" icon="laptop">
+    The planned `ink input` command edits exactly one logical line.
+  </Card>
+  <Card title="Multiline textarea" icon="add-document">
+    The planned `ink textarea` command supports line breaks and a scrolling
+    viewport.
+  </Card>
+  <Card title="Vim-style editing" icon="setting">
+    Normal, Insert, and Visual editing are part of the specification, including
+    line and block selections.
+  </Card>
+  <Card title="Clean composition" icon="right-arrow">
+    On acceptance, only the edited value and a final newline are intended for
+    standard output.
+  </Card>
+</CardGrid>
+
+## What exists today
+
+The repository contains a Rust command-line bootstrap and behavioral specifications. It can parse the proposed commands and generate completions, but `input` and `textarea` currently exit with a “not implemented” error. These pages describe the target contract so it can be reviewed while implementation proceeds.
+
+## Design principles
+
+- **Composable:** UI traffic stays off standard output.
+- **Predictable:** command-line options override user configuration, which overrides built-in defaults.
+- **Text-correct:** edits operate on visible grapheme clusters instead of bytes.
+- **Recoverable:** terminal state must be restored after acceptance, cancellation, errors, or caught panics.
+- **Legible:** mode names are visible as text and do not rely on color alone.
+
+Start with [installation status](./install/) or inspect the [planned CLI](./cli/).

@@ -1,0 +1,18 @@
+---
+import StarlightSiteTitle from "@astrojs/starlight/components/SiteTitle.astro";
+import Logo from "./Logo.astro";
+---
+
+<div class="docs-title"><Logo size={30} /><StarlightSiteTitle /></div>
+
+<style>
+.docs-title {
+  --logo-paper: var(--sl-color-bg-nav);
+  --logo-ink: var(--sl-color-gray-3);
+  --logo-accent: var(--sl-color-accent);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+</style>

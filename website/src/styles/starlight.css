@@ -1,0 +1,75 @@
+@import "./brand.css";
+
+:root {
+  --sl-font: var(--brand-serif);
+  --sl-font-mono: var(--brand-mono);
+  --sl-content-width: 52rem;
+  --sl-sidebar-width: 18rem;
+}
+:root, :root[data-theme="light"] {
+  --sl-color-accent-low: #dce5f2;
+  --sl-color-accent: #315c9b;
+  --sl-color-accent-high: #183760;
+  --sl-color-white: #17232f;
+  --sl-color-gray-1: #253541;
+  --sl-color-gray-2: #42515a;
+  --sl-color-gray-3: #68737a;
+  --sl-color-gray-4: #939a98;
+  --sl-color-gray-5: #bfc0b7;
+  --sl-color-gray-6: #ded9ca;
+  --sl-color-gray-7: #ebe5d8;
+  --sl-color-black: #fffaf0;
+  --sl-color-bg: #f3eddf;
+  --sl-color-bg-nav: #f8f2e6;
+  --sl-color-bg-sidebar: #eee7d9;
+  --sl-color-bg-inline-code: #e4ddcf;
+  --sl-color-hairline: #cbc4b5;
+  --sl-color-hairline-light: #aaa493;
+}
+:root[data-theme="dark"] {
+  --sl-color-accent-low: #253952;
+  --sl-color-accent: #8eb4ef;
+  --sl-color-accent-high: #d3e2fa;
+  --sl-color-white: #fffaf0;
+  --sl-color-gray-1: #e7e4db;
+  --sl-color-gray-2: #c8c6be;
+  --sl-color-gray-3: #a5a6a1;
+  --sl-color-gray-4: #777e7f;
+  --sl-color-gray-5: #53606a;
+  --sl-color-gray-6: #32414d;
+  --sl-color-gray-7: #24333f;
+  --sl-color-black: #17232f;
+  --sl-color-bg: #17232f;
+  --sl-color-bg-nav: #1b2935;
+  --sl-color-bg-sidebar: #1b2935;
+  --sl-color-bg-inline-code: #263743;
+  --sl-color-hairline: #3b4b56;
+  --sl-color-hairline-light: #53606a;
+}
+.site-title {
+  font: 600 1.05rem var(--sl-font-mono);
+  letter-spacing: -0.06em;
+}
+.sl-markdown-content {
+  font-size: 1.08rem;
+  line-height: 1.72;
+}
+.sl-markdown-content h1, .sl-markdown-content h2, .sl-markdown-content h3 {
+  font-family: var(--sl-font);
+  letter-spacing: -0.025em;
+}
+.sl-markdown-content h1 {
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  line-height: 0.96;
+}
+.sl-markdown-content code:not(:where(.not-content *)) {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0;
+}
+.expressive-code .frame, .sl-markdown-content .card {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+#starlight__sidebar a[aria-current="page"] {
+  box-shadow: inset 3px 0 var(--sl-color-accent);
+}

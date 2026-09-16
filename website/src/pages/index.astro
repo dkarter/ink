@@ -1,0 +1,201 @@
+---
+import Logo from "../components/Logo.astro";
+import "../styles/site.css";
+
+const base = `${import.meta.env.BASE_URL.replace(/[/]$/, "")}/`;
+const path = (value: string) => `${base}${value.replace(/^[/]/, "")}`;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="Ink is a Vim-style prompt editor for terminal workflows, currently in early development."
+    />
+    <meta name="theme-color" content="#f3eddf" />
+    <meta property="og:title" content="Ink: edit before you commit." />
+    <meta
+      property="og:description"
+      content="A planned Vim-style prompt editor for composable terminal workflows."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dkarter.github.io/ink/" />
+    <meta
+      property="og:image"
+      content="https://dkarter.github.io/ink/og-image.svg"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://dkarter.github.io/ink/" />
+    <link rel="icon" href={path("/favicon.svg")} />
+    <title>Ink: edit before you commit.</title>
+  </head>
+  <body>
+    <div class="paper-grain" aria-hidden="true"></div>
+    <header class="nav shell">
+      <a class="brand" href={path("/")} aria-label="Ink home"><Logo
+          size={36}
+        /><strong>ink</strong></a>
+      <nav aria-label="Main navigation">
+        <a href={path("/docs/")}>Field notes</a>
+        <a href="https://github.com/dkarter/ink">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="status-band" aria-label="Development status">
+        <div class="shell">
+          <strong>Build note 001</strong><span>Ink is in early development. The
+            interface below is a design target, not a released tool.</span>
+        </div>
+      </section>
+
+      <section class="hero shell">
+        <div class="hero-copy">
+          <p class="eyebrow">A composable editor for terminal prompts</p>
+          <h1>Edit before<br />you <em>commit.</em></h1>
+          <p class="lede">
+            Ink is being designed to bring focused Vim-style editing to shell
+            scripts: one line, many lines, and no detour into a full editor.
+          </p>
+          <div class="actions">
+            <a class="primary" href={path("/docs/")}>Read the design notes <span
+                aria-hidden="true"
+              >→</span></a>
+            <a href="https://github.com/dkarter/ink">Follow development</a>
+          </div>
+        </div>
+
+        <div
+          class="prompt-sheet"
+          aria-label="Planned Ink textarea interface illustration"
+        >
+          <div class="sheet-meta">
+            <span>PROPOSED INTERFACE</span><span>ink textarea</span>
+          </div>
+          <div class="editor-lines" aria-hidden="true">
+            <span class="number">1</span><span>Write release notes for the next
+              build.</span>
+            <span class="number">2</span><span>Keep them concise, specific, and
+              useful.</span>
+            <span class="number">3</span><span class="selection"
+            >Mention the new terminal editor.</span>
+            <span class="number">4</span><span class="cursor-line">▌</span>
+          </div>
+          <div class="mode-line">
+            <b>VISUAL LINE</b><span>3:1</span><span>esc cancel · enter
+              accept</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="manifesto shell">
+        <p class="section-mark">01 / INTENT</p>
+        <h2>
+          A small tool for the moment between <i>thinking</i> and <i
+          >sending.</i>
+        </h2>
+        <p>
+          Ink’s planned contract is simple: open an interactive prompt, edit
+          with familiar motions, and emit the accepted value to standard output.
+        </p>
+      </section>
+
+      <section class="capabilities shell" aria-label="Planned capabilities">
+        <article>
+          <span>01</span><h3>One line or many</h3>
+          <p>
+            <code>ink input</code> targets compact values. <code>ink
+              textarea</code> targets prose and structured multiline text.
+          </p>
+        </article>
+        <article>
+          <span>02</span><h3>Modal by design</h3>
+          <p>
+            Normal, Insert, and Visual modes are planned for both prompts, with
+            line and block selections in textarea.
+          </p>
+        </article>
+        <article>
+          <span>03</span><h3>Unicode aware</h3>
+          <p>
+            The editing model is specified around visible grapheme clusters, so
+            joined emoji and combining marks stay intact.
+          </p>
+        </article>
+        <article>
+          <span>04</span><h3>Pipeline friendly</h3>
+          <p>
+            Seed from a flag or pipe, edit interactively, then pass the accepted
+            value to the next command.
+          </p>
+        </article>
+      </section>
+
+      <section class="notation shell">
+        <div>
+          <p class="section-mark">02 / PROPOSED FLOW</p>
+          <h2>Standard input.<br />Human judgment.<br />Standard output.</h2>
+          <p>
+            The shell stays in charge. Ink is planned as the brief, deliberate
+            editing layer inside a larger workflow.
+          </p>
+          <a href={path("/docs/cli/")}>Review the planned CLI →</a>
+        </div>
+        <ol>
+          <li><span>IN</span><code>git diff --stat | ink textarea</code></li>
+          <li><span>EDIT</span><code>NORMAL → INSERT → NORMAL</code></li>
+          <li><span>OUT</span><code>accepted text on stdout</code></li>
+        </ol>
+      </section>
+
+      <section class="themes shell">
+        <div class="theme-copy">
+          <p class="section-mark">03 / COLOR STUDIES</p>
+          <h2>At home in your terminal.</h2>
+          <p>
+            The specification includes bundled palettes from Tokyo Night to
+            Solarized Light, plus semantic color overrides.
+          </p><a href={path("/docs/themes/")}>See planned themes →</a>
+        </div>
+        <div class="swatches" aria-label="Preview of planned theme palettes">
+          <div class="swatch tokyo">
+            <b>Tokyo
+              Night</b><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="swatch latte">
+            <b>Catppuccin
+              Latte</b><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="swatch nord">
+            <b>Nord</b><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing shell">
+        <Logo size={64} />
+        <p class="section-mark">WORK IN PROGRESS</p>
+        <h2>The page is live.<br />The tool is still being written.</h2>
+        <p>
+          Read the current design contract or follow implementation on GitHub.
+        </p>
+        <div class="actions">
+          <a class="primary" href={path("/docs/")}>Open the field notes <span
+              aria-hidden="true"
+            >→</span></a><a href="https://github.com/dkarter/ink"
+          >View source</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="shell">
+      <a class="brand" href={path("/")}><Logo size={28} /><strong
+        >ink</strong></a><span>Vim-style prompts, in development.</span><a
+        href="https://github.com/dkarter/ink"
+      >GitHub</a>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+[package]
+name = "ink"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/dkarter/ink"
+description = "A fast, composable terminal input prompt with Vim editing"
+
+[dependencies]
+crossterm = "0.29"
+ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
+unicode-segmentation = "1.12"
+usage = { version = "6", package = "usage-rs", features = ["completions"] }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "s"
+panic = "abort"
+strip = true

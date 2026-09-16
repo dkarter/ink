@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/dkarter/hwt/main/schema/herdr-worktree.schema.json
+
+agent: opencode2
+worktree_dir: ../
+worktree_naming: basename
+
+post_create:
+  - mise install
+  - aube --dir website install --frozen-lockfile
