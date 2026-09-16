@@ -6,6 +6,7 @@ pub mod editor;
 #[doc(hidden)]
 pub mod startup_bench;
 
-mod terminal;
+#[doc(hidden)]
+pub mod terminal;
 pub mod theme;
 pub mod ui;
