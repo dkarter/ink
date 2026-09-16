@@ -45,6 +45,13 @@ fn theme_001_use_default_theme() {
     let resolved = theme::resolve(settings.theme, &config.colors);
 
     assert_eq!(resolved.name, ThemeName::TokyoNight);
+
+    let result = super::command_line::prompt("exec {ink} input --value text", b"\x03");
+    assert!(
+        terminal_has_color(&result.terminal, "38", resolved.palette.foreground),
+        "{}",
+        String::from_utf8_lossy(&result.terminal).escape_debug()
+    );
 }
 #[test]
 fn theme_002_select_every_bundled_theme() {
@@ -123,13 +130,30 @@ fn theme_003_command_line_theme_wins() {
     assert_eq!(resolved.name, ThemeName::Nord);
     let nord = theme::resolve(ThemeName::Nord, &Default::default());
     assert_eq!(resolved.palette, nord.palette);
+
+    let result = super::command_line::prompt_with_config(
+        "exec {ink} input --theme nord --value text",
+        b"\x03",
+        Some("theme = \"dracula\"\n"),
+    );
+    assert!(terminal_has_color(
+        &result.terminal,
+        "38",
+        nord.palette.foreground
+    ));
+    let dracula = theme::resolve(ThemeName::Dracula, &Default::default());
+    assert!(!terminal_has_color(
+        &result.terminal,
+        "38",
+        dracula.palette.foreground
+    ));
 }
 #[test]
 fn theme_004_user_colors_overlay_a_base_theme() {
     let base = theme::resolve(ThemeName::GruvboxDark, &Default::default());
     let config = config::parse(
         Path::new("config.toml"),
-        "theme = \"gruvbox-dark\"\n[colors]\naccent = \"#123456\"\nvisual-mode = \"#abcdef\"\n",
+        "theme = \"gruvbox-dark\"\n[colors]\naccent = \"#123456\"\nvisual-mode = \"#abcdef\"\nselection = \"#123456\"\nselection-foreground = \"#abcdef\"\n",
     )
     .expect("parse overrides");
 
@@ -139,7 +163,13 @@ fn theme_004_user_colors_overlay_a_base_theme() {
     assert_eq!(resolved.palette.accent, Color::rgb(0x12, 0x34, 0x56));
     assert_eq!(resolved.palette.visual_mode, Color::rgb(0xab, 0xcd, 0xef));
     for role in ColorRole::ALL {
-        if !matches!(role, ColorRole::Accent | ColorRole::VisualMode) {
+        if !matches!(
+            role,
+            ColorRole::Accent
+                | ColorRole::VisualMode
+                | ColorRole::Selection
+                | ColorRole::SelectionForeground
+        ) {
             assert_eq!(
                 resolved.palette.color(role),
                 base.palette.color(role),
@@ -147,6 +177,22 @@ fn theme_004_user_colors_overlay_a_base_theme() {
             );
         }
     }
+
+    let result = super::command_line::prompt_with_config(
+        "exec {ink} input --normal --value text",
+        b"vl\x03",
+        Some("[colors]\nselection = \"#123456\"\nselection-foreground = \"#abcdef\"\n"),
+    );
+    assert!(terminal_has_color(
+        &result.terminal,
+        "48",
+        Color::rgb(0x12, 0x34, 0x56)
+    ));
+    assert!(terminal_has_color(
+        &result.terminal,
+        "38",
+        Color::rgb(0xab, 0xcd, 0xef)
+    ));
 }
 #[test]
 fn theme_005_reject_unknown_theme_values() {
@@ -187,4 +233,11 @@ fn theme_005_reject_unknown_theme_values() {
             "prompt runtime started before validation: {stderr:?}"
         );
     }
+}
+
+fn terminal_has_color(bytes: &[u8], channel: &str, color: Color) -> bool {
+    let sequence = format!("{channel};2;{};{};{}", color.red, color.green, color.blue);
+    bytes
+        .windows(sequence.len())
+        .any(|window| window == sequence.as_bytes())
 }

@@ -4,10 +4,10 @@ description: Current installation status and source build instructions for Ink.
 ---
 
 :::caution[Not released]
-Ink does not have a supported release or package installation method yet. The prompt editor is not implemented. Do not add it to production scripts.
+Ink does not have a supported package installation method yet. Build the current implementation from source while the project prepares its first release.
 :::
 
-## Inspect the bootstrap
+## Build from source
 
 Contributors can build the current command-line scaffold from source with a recent stable Rust toolchain:
 
@@ -17,7 +17,7 @@ cd ink
 cargo build
 ```
 
-This produces a development binary at `target/debug/ink`. At present, the binary can show help and generate shell completions. Running `ink input` or `ink textarea` reports that prompts are not implemented and exits unsuccessfully.
+This produces a development binary at `target/debug/ink` with interactive input, textarea, help, and shell completion commands.
 
 ## Planned distribution
 
@@ -25,4 +25,4 @@ No release channel has been committed to yet. Installation commands will be docu
 
 ## Requirements for future prompt use
 
-The planned interactive commands require a controlling terminal. Piped text may provide an initial value, but Ink will still need a terminal for editing. A non-interactive environment without a controlling terminal is specified to fail cleanly without writing to standard output.
+The interactive commands require a controlling terminal. Piped text may provide an initial value, but Ink still needs a terminal for editing. A non-interactive environment without a controlling terminal fails cleanly without writing to standard output.

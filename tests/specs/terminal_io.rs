@@ -12,12 +12,12 @@ use ink::terminal::{
     TerminalDevice, run_prompt,
 };
 use ink::{
-    cli::{CliRuntime, PromptKind},
+    cli::{CliRuntime, PromptKind, PromptRuntimeOptions, ResolvedPromptOptions},
     terminal,
 };
 
-const ENTER_BYTES: &[u8] = b"\x1b7\x1b[?25l";
-const RESTORE_BYTES: &[u8] = b"\x1b8\x1b[J\x1b[0 q\x1b[?25h";
+const ENTER_BYTES: &[u8] = b"\x1b7\x1b[?25l\x1b[?2004h";
+const RESTORE_BYTES: &[u8] = b"\x1b8\x1b[J\x1b[0 q\x1b[?2004l\x1b[?25h";
 
 #[derive(Default)]
 struct DeviceState {
@@ -208,15 +208,12 @@ fn io_004_exit_statuses_identify_outcomes() {
             unreachable!()
         }
 
-        fn read_stdin(&mut self) {
-            unreachable!()
-        }
-
-        fn open_controlling_terminal(&mut self) {
-            unreachable!()
-        }
-
-        fn run_prompt(&mut self, _: PromptKind) -> std::process::ExitCode {
+        fn run_prompt(
+            &mut self,
+            _: PromptKind,
+            _: PromptRuntimeOptions,
+            _: ResolvedPromptOptions,
+        ) -> std::process::ExitCode {
             unreachable!()
         }
     }

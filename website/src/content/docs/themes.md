@@ -1,19 +1,15 @@
 ---
 title: Themes
-description: Planned bundled themes and semantic color overrides for Ink.
+description: Bundled themes and semantic color overrides for Ink.
 ---
-
-:::caution[Not implemented]
-Theme resolution and prompt rendering are still design work. The names on this page come from the current specification.
-:::
 
 ## Default
 
-Tokyo Night is the planned default when neither configuration nor `--theme` selects another palette.
+Tokyo Night is the default when neither configuration nor `--theme` selects another palette.
 
 ## Bundled palettes
 
-Ink is specified to bundle these themes without requiring filesystem access:
+Ink bundles these themes without requiring filesystem access:
 
 - Tokyo Night
 - Catppuccin Latte
@@ -26,7 +22,7 @@ Ink is specified to bundle these themes without requiring filesystem access:
 - Solarized Dark
 - Solarized Light
 
-Theme names will be matched case-insensitively with hyphens as separators. For example, the intended command-line form is:
+Theme names are matched case-insensitively with hyphens as separators. For example:
 
 ```sh
 ink textarea --theme catppuccin-mocha
@@ -34,9 +30,9 @@ ink textarea --theme catppuccin-mocha
 
 ## Semantic overrides
 
-User configuration is designed to override individual semantic color roles after loading a bundled base palette. Roles not overridden will retain the selected theme’s values.
+User configuration overrides individual semantic color roles after loading a bundled base palette. Roles not overridden retain the selected theme’s values.
 
-Unknown theme names, color roles, or color values will fail startup before terminal state changes. The exact role names and accepted color syntax will be documented once implemented.
+Unknown theme names, color roles, or color values fail startup before terminal state changes. Colors use `#RRGGBB` syntax; configuration supports the semantic roles listed in the project README.
 
 ## Accessibility
 

@@ -1,20 +1,19 @@
 # Ink
 
-Ink is a planned fast, composable terminal input prompt built with Rust, Ratatui, and Crossterm. It takes inspiration from `gum input` and adds first-class Vim editing for single-line input and multiline textareas.
+Ink is a fast, composable terminal input prompt built with Rust, Ratatui, and Crossterm. It takes inspiration from `gum input` and adds first-class Vim editing for single-line input and multiline textareas.
 
-> [!IMPORTANT]
-> Ink is in its bootstrap phase. The CLI, specifications, tests, documentation, and release infrastructure compile and validate, but interactive prompt behavior is intentionally not implemented yet.
-
-## Planned interface
+## Interface
 
 ```sh
 ink input --value "release title"
 printf 'first line\nsecond line' | ink textarea
 ink input --normal --theme catppuccin-mocha
+ink input --prompt "Name: "
+ink textarea --fullscreen
 ink completion zsh > _ink
 ```
 
-Accepted values will be written cleanly to stdout. Interactive input and rendering will use the controlling terminal so piped initial values remain compatible with shell composition.
+Accepted values are written cleanly to stdout. Interactive input and rendering use the controlling terminal so piped initial values remain compatible with shell composition. Input uses a compact three-row interface, and textarea provides five editable rows unless `--fullscreen` is set. Press Enter to accept an input, Ctrl-D to accept either prompt, Ctrl-C to cancel, or `q` to cancel from Normal mode.
 
 ### Planned placeholders (not implemented)
 
@@ -52,7 +51,7 @@ mise install
 mise ci
 ```
 
-Product behavior is specified in [`openspec/specs`](openspec/specs). Every scenario has a stable ID and exactly one linked Rust test. Ignored tests in `tests/specs/` are explicit implementation placeholders, not claims of completed behavior.
+Product behavior is specified in [`openspec/specs`](openspec/specs). Every scenario has a stable ID and exactly one linked Rust test. Any ignored tests in `tests/specs/` are explicit placeholders for capabilities that have not shipped.
 
 The documentation site lives in [`website`](website) and is built with Astro and Starlight.
 

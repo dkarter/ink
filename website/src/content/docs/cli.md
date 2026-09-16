@@ -1,29 +1,27 @@
 ---
 title: CLI
-description: The current scaffold and proposed command-line contract for Ink.
+description: Commands, options, output, and exit statuses for Ink.
 ---
-
-:::note[Implementation status]
-The command names and flags below are present in the Rust CLI scaffold. Completion generation works, but the two prompt commands are placeholders and return a failure.
-:::
 
 ## Commands
 
-| Command                  | Intended purpose             | Current state   |
-| ------------------------ | ---------------------------- | --------------- |
-| `ink input`              | Edit one logical line        | Not implemented |
-| `ink textarea`           | Edit multiline text          | Not implemented |
-| `ink completion <shell>` | Generate a completion script | Scaffolded      |
+| Command                  | Purpose                      |
+| ------------------------ | ---------------------------- |
+| `ink input`              | Edit one logical line        |
+| `ink textarea`           | Edit multiline text          |
+| `ink completion <shell>` | Generate a completion script |
 
 ## Prompt options
 
 The same options apply to `input` and `textarea`.
 
-| Option           | Intended behavior                                          |
+| Option           | Behavior                                                   |
 | ---------------- | ---------------------------------------------------------- |
 | `--value <TEXT>` | Seed the editable value; takes precedence over piped input |
 | `--normal`       | Start in Normal mode instead of Insert mode                |
 | `--theme <NAME>` | Select a bundled or configured theme                       |
+
+`input` also accepts `--prompt <TEXT>`. Its default is `> `; pass an empty string to remove it. `textarea` uses five editable rows plus a status row by default and accepts `--fullscreen` to use the complete terminal.
 
 ## Completion targets
 
@@ -35,7 +33,7 @@ ink completion zsh
 
 Completion scripts are generated from the same static CLI definition used for parsing. Generation does not open a prompt or access the controlling terminal.
 
-## Proposed output contract
+## Output contract
 
 Accepted values will be emitted to standard output with exactly one final newline. Interface rendering and terminal control sequences will use the controlling terminal instead.
 
@@ -46,4 +44,4 @@ Accepted values will be emitted to standard output with exactly one final newlin
 | Usage error     |         `2` | Empty                      |
 | Cancelled       |       `130` | Empty                      |
 
-These prompt outcomes describe the target behavior and are not yet implemented.
+Enter accepts `input`; Ctrl-D accepts either prompt. Ctrl-C cancels in every mode, and `q` cancels in Normal mode.

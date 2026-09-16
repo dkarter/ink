@@ -20,6 +20,8 @@ const CLEAR_OWNED_REGION: &[u8] = b"\x1b[J";
 const HIDE_CURSOR: &[u8] = b"\x1b[?25l";
 const SHOW_CURSOR: &[u8] = b"\x1b[?25h";
 const DEFAULT_CURSOR: &[u8] = b"\x1b[0 q";
+const ENABLE_BRACKETED_PASTE: &[u8] = b"\x1b[?2004h";
+const DISABLE_BRACKETED_PASTE: &[u8] = b"\x1b[?2004l";
 const NO_TTY_DIAGNOSTIC: &str = "ink: no controlling terminal available\n";
 static SESSION_LOCK: Mutex<()> = Mutex::new(());
 
@@ -119,6 +121,56 @@ impl TerminalSession {
         self.restoration.device.read(buffer)
     }
 
+    /// Read a decoded terminal event from the controlling terminal.
+    pub fn read_event(&self) -> io::Result<crossterm::event::Event> {
+        crossterm::event::read()
+    }
+
+    /// Query the controlling terminal cursor without writing to process stdout.
+    pub fn cursor_position(&self) -> io::Result<(u16, u16)> {
+        #[cfg(windows)]
+        {
+            return crossterm::cursor::position();
+        }
+        #[cfg(unix)]
+        {
+            self.cursor_position_unix()
+        }
+    }
+
+    #[cfg(unix)]
+    fn cursor_position_unix(&self) -> io::Result<(u16, u16)> {
+        self.write_ui(b"\x1b[6n")?;
+        self.flush()?;
+        let mut response = Vec::with_capacity(16);
+        loop {
+            let mut byte = [0];
+            if self.read_input(&mut byte)? == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "terminal closed during cursor query",
+                ));
+            }
+            response.push(byte[0]);
+            if byte[0] == b'R' {
+                let coordinates = std::str::from_utf8(&response)
+                    .ok()
+                    .and_then(|value| value.strip_prefix("\x1b["))
+                    .and_then(|value| value.strip_suffix('R'))
+                    .and_then(|value| value.split_once(';'))
+                    .and_then(|(row, column)| Some((column.parse().ok()?, row.parse().ok()?)));
+                return coordinates
+                    .map(|(column, row): (u16, u16)| {
+                        (column.saturating_sub(1), row.saturating_sub(1))
+                    })
+                    .ok_or_else(|| io::Error::other("invalid terminal cursor response"));
+            }
+            if response.len() == response.capacity() {
+                return Err(io::Error::other("terminal cursor response is too long"));
+            }
+        }
+    }
+
     /// Write UI bytes to the controlling terminal, never to stdout.
     pub fn write_ui(&self, bytes: &[u8]) -> io::Result<()> {
         self.restoration.device.write_all(bytes)
@@ -164,6 +216,7 @@ struct RestorationState {
     screen_region: bool,
     cursor_hidden: bool,
     cursor_shape: bool,
+    bracketed_paste: bool,
     flush_pending: bool,
 }
 
@@ -193,16 +246,22 @@ impl Restoration {
             state.cursor_hidden = true;
         }
         self.device.write_all(HIDE_CURSOR)?;
+        {
+            let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+            state.bracketed_paste = true;
+        }
+        self.device.write_all(ENABLE_BRACKETED_PASTE)?;
         self.device.flush()
     }
 
     fn restore(&self) -> io::Result<()> {
-        let (raw_mode, screen_region, cursor_hidden, cursor_shape, flush_pending) = {
+        let (raw_mode, screen_region, cursor_hidden, cursor_shape, bracketed_paste, flush_pending) = {
             let state = self.state.lock().unwrap_or_else(|error| error.into_inner());
             if !state.raw_mode
                 && !state.screen_region
                 && !state.cursor_hidden
                 && !state.cursor_shape
+                && !state.bracketed_paste
                 && !state.flush_pending
             {
                 return Ok(());
@@ -212,12 +271,13 @@ impl Restoration {
                 state.screen_region,
                 state.cursor_hidden,
                 state.cursor_shape,
+                state.bracketed_paste,
                 state.flush_pending,
             )
         };
 
         let mut first_error = None;
-        if screen_region || cursor_hidden || cursor_shape {
+        if screen_region || cursor_hidden || cursor_shape || bracketed_paste {
             self.state
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())
@@ -245,6 +305,16 @@ impl Restoration {
             }
             attempt(&mut first_error, result);
         }
+        if bracketed_paste {
+            let result = self.device.write_all(DISABLE_BRACKETED_PASTE);
+            if result.is_ok() {
+                self.state
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .bracketed_paste = false;
+            }
+            attempt(&mut first_error, result);
+        }
         if cursor_hidden {
             let result = self.device.write_all(SHOW_CURSOR);
             if result.is_ok() {
@@ -255,7 +325,7 @@ impl Restoration {
             }
             attempt(&mut first_error, result);
         }
-        if flush_pending || screen_region || cursor_hidden || cursor_shape {
+        if flush_pending || screen_region || cursor_hidden || cursor_shape || bracketed_paste {
             let result = self.device.flush();
             if result.is_ok() {
                 self.state

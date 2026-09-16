@@ -3,8 +3,9 @@
 use std::{ffi::OsStr, process::ExitCode};
 
 use crate::{
+    app,
     config::{self, CliOptions, ConfigPaths, Settings, ThemeName},
-    terminal::ExitStatus,
+    terminal::{self, ExitStatus, ProcessIo},
     theme,
 };
 use usage::{Args, Cli, Subcommands};
@@ -24,15 +25,15 @@ struct Ink {
 #[derive(Subcommands)]
 enum Command {
     /// Edit a single logical line of text.
-    Input(Prompt),
+    Input(InputPrompt),
     /// Edit multiline text.
-    Textarea(Prompt),
+    Textarea(TextareaPrompt),
     /// Generate a shell completion script.
     Completion(Completion),
 }
 
 #[derive(Args)]
-struct Prompt {
+struct InputPrompt {
     /// Initial editable text. Takes precedence over piped stdin.
     #[usage(long)]
     value: Option<String>,
@@ -44,6 +45,29 @@ struct Prompt {
     /// Select a bundled or configured theme.
     #[usage(long)]
     theme: Option<String>,
+
+    /// Text shown before an input value. Use an empty value to hide it.
+    #[usage(long)]
+    prompt: Option<String>,
+}
+
+#[derive(Args)]
+struct TextareaPrompt {
+    /// Initial editable text. Takes precedence over piped stdin.
+    #[usage(long)]
+    value: Option<String>,
+
+    /// Start in Vim Normal mode instead of Insert mode.
+    #[usage(long)]
+    normal: bool,
+
+    /// Select a bundled or configured theme.
+    #[usage(long)]
+    theme: Option<String>,
+
+    /// Use the complete terminal area instead of an inline prompt.
+    #[usage(long)]
+    fullscreen: bool,
 }
 
 #[derive(Args)]
@@ -61,19 +85,27 @@ pub enum PromptKind {
     Textarea,
 }
 
+/// Prompt values that affect process I/O or presentation.
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PromptRuntimeOptions {
+    pub value: Option<String>,
+    pub prompt: String,
+    pub fullscreen: bool,
+}
+
 /// Runtime effects performed after parsing.
 #[doc(hidden)]
 pub trait CliRuntime {
     fn write_stdout(&mut self, text: &str);
 
-    /// Record an attempt to read prompt input.
-    fn read_stdin(&mut self);
-
-    /// Record an attempt to open the controlling terminal.
-    fn open_controlling_terminal(&mut self);
-
     /// Enter prompt execution.
-    fn run_prompt(&mut self, kind: PromptKind) -> ExitCode;
+    fn run_prompt(
+        &mut self,
+        kind: PromptKind,
+        prompt: PromptRuntimeOptions,
+        options: ResolvedPromptOptions,
+    ) -> ExitCode;
 }
 
 /// Validated settings and palette ready for the prompt runtime.
@@ -100,17 +132,17 @@ impl CliRuntime for ProcessRuntime {
         print!("{text}");
     }
 
-    fn read_stdin(&mut self) {
-        unreachable!("prompt input is not implemented")
-    }
-
-    fn open_controlling_terminal(&mut self) {
-        unreachable!("terminal access is not implemented")
-    }
-
-    fn run_prompt(&mut self, _kind: PromptKind) -> ExitCode {
-        eprintln!("ink prompts are not implemented in this bootstrap release");
-        ExitCode::FAILURE
+    fn run_prompt(
+        &mut self,
+        kind: PromptKind,
+        mut prompt: PromptRuntimeOptions,
+        options: ResolvedPromptOptions,
+    ) -> ExitCode {
+        let value = prompt.value.take();
+        terminal::run_prompt(&mut ProcessIo, value, |session, seed| {
+            app::run(session, kind, seed, &prompt, options)
+        })
+        .into()
     }
 }
 
@@ -122,17 +154,37 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
             runtime.write_stdout(&Ink::completion_script(shell));
             ExitCode::SUCCESS
         }
-        Command::Input(prompt) => dispatch_prompt(prompt, PromptKind::Input, runtime),
-        Command::Textarea(prompt) => dispatch_prompt(prompt, PromptKind::Textarea, runtime),
+        Command::Input(prompt) => dispatch_prompt(
+            prompt.value,
+            prompt.normal,
+            prompt.theme,
+            PromptKind::Input,
+            prompt.prompt.unwrap_or_else(|| "> ".to_owned()),
+            false,
+            runtime,
+        ),
+        Command::Textarea(prompt) => dispatch_prompt(
+            prompt.value,
+            prompt.normal,
+            prompt.theme,
+            PromptKind::Textarea,
+            String::new(),
+            prompt.fullscreen,
+            runtime,
+        ),
     }
 }
 
-fn dispatch_prompt(prompt: Prompt, kind: PromptKind, runtime: &mut impl CliRuntime) -> ExitCode {
-    let theme = match prompt
-        .theme
-        .map(|theme| theme.parse::<ThemeName>())
-        .transpose()
-    {
+fn dispatch_prompt(
+    value: Option<String>,
+    normal: bool,
+    theme: Option<String>,
+    kind: PromptKind,
+    prompt: String,
+    fullscreen: bool,
+    runtime: &mut impl CliRuntime,
+) -> ExitCode {
+    let theme = match theme.map(|theme| theme.parse::<ThemeName>()).transpose() {
         Ok(theme) => theme,
         Err(error) => {
             eprintln!("invalid command-line setting `--theme`: {error}");
@@ -147,12 +199,19 @@ fn dispatch_prompt(prompt: Prompt, kind: PromptKind, runtime: &mut impl CliRunti
         }
     };
     let cli_options = CliOptions {
-        normal: prompt.normal.then_some(true),
+        normal: normal.then_some(true),
         theme,
     };
     let resolved_options = resolve_prompt_options(&config, &cli_options);
-    let _ = (prompt.value, resolved_options);
-    runtime.run_prompt(kind)
+    runtime.run_prompt(
+        kind,
+        PromptRuntimeOptions {
+            value,
+            prompt,
+            fullscreen,
+        },
+        resolved_options,
+    )
 }
 
 /// Parse explicit arguments from the compiled CLI tables and dispatch them to a runtime.

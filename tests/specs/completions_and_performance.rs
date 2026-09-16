@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ink::cli::{CliRuntime, PromptKind};
+use ink::cli::{CliRuntime, PromptKind, PromptRuntimeOptions, ResolvedPromptOptions};
 use ink::startup_bench::{ENFORCE_BUDGET_ENV, SAMPLE_FIXTURE_ENV, SAMPLES, WARMUPS};
 
 static NEXT_TEMP_DIR: AtomicU64 = AtomicU64::new(0);
@@ -96,8 +96,6 @@ fn ink_with_open_stdin(args: &[&str]) -> Output {
 struct RuntimeProbe {
     stdout: String,
     prompts: Vec<PromptKind>,
-    stdin_reads: usize,
-    terminal_opens: usize,
 }
 
 impl CliRuntime for RuntimeProbe {
@@ -105,15 +103,12 @@ impl CliRuntime for RuntimeProbe {
         self.stdout.push_str(text);
     }
 
-    fn read_stdin(&mut self) {
-        self.stdin_reads += 1;
-    }
-
-    fn open_controlling_terminal(&mut self) {
-        self.terminal_opens += 1;
-    }
-
-    fn run_prompt(&mut self, kind: PromptKind) -> ExitCode {
+    fn run_prompt(
+        &mut self,
+        kind: PromptKind,
+        _: PromptRuntimeOptions,
+        _: ResolvedPromptOptions,
+    ) -> ExitCode {
         self.prompts.push(kind);
         ExitCode::SUCCESS
     }
@@ -153,8 +148,6 @@ fn comp_003_completion_generation_has_no_prompt_side_effects() {
         let status = ink::cli::run_from(&args, &mut runtime).expect("completion should parse");
         assert_eq!(status, std::process::ExitCode::SUCCESS);
         assert!(runtime.prompts.is_empty(), "completion entered prompt I/O");
-        assert_eq!(runtime.stdin_reads, 0, "completion read stdin");
-        assert_eq!(runtime.terminal_opens, 0, "completion opened a terminal");
         assert_eq!(runtime.stdout.as_bytes(), output.stdout);
     }
 }

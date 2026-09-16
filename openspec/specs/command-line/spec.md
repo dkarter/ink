@@ -69,3 +69,31 @@ Ink SHALL accept initial text from a command-line option and from piped standard
 - GIVEN both piped input and `--value` are present
 - WHEN the prompt opens
 - THEN `--value` is used and piped input does not alter the buffer
+
+### Requirement: Fit command workflows
+
+Ink SHALL render input and textarea as compact inline prompts by default, while allowing input prompt text to be configured and textarea to use the full terminal.
+
+#### Scenario: Configure the input prompt {#CLI-009}
+
+- GIVEN `ink input --prompt <text>`
+- WHEN the prompt renders
+- THEN the configured text prefixes the editable value, including an empty prefix when requested
+
+#### Scenario: Keep textarea compact by default {#CLI-010}
+
+- GIVEN `ink textarea` without a layout option
+- WHEN the prompt renders
+- THEN Ink reserves five editable rows and one status row within the command workflow
+
+#### Scenario: Expand textarea to full screen {#CLI-011}
+
+- GIVEN `ink textarea --fullscreen`
+- WHEN the prompt renders
+- THEN Ink uses the complete available terminal area
+
+#### Scenario: Remove prompt UI after completion {#CLI-012}
+
+- GIVEN either prompt is visible
+- WHEN it accepts or cancels
+- THEN the complete prompt UI is cleared before control returns to the command workflow

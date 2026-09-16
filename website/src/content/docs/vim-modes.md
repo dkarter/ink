@@ -1,15 +1,11 @@
 ---
 title: Vim modes
-description: The planned modal editing model for Ink prompts.
+description: The modal editing model for Ink prompts.
 ---
-
-:::caution[Specification, not current behavior]
-Modal prompt editing is still under development. This page records the intended behavior, not a working keybinding reference.
-:::
 
 ## Mode model
 
-Both prompt types are designed to support three core modes:
+Both prompt types support three core modes:
 
 | Mode   | Purpose                             | Cursor       |
 | ------ | ----------------------------------- | ------------ |
@@ -36,6 +32,6 @@ Movement and editing are specified in extended grapheme clusters rather than byt
 
 ## Viewports
 
-For multiline values, the planned viewport follows the cursor horizontally and vertically without altering the underlying buffer. Layout will be recomputed after terminal resize events, including very narrow and transient zero-sized areas.
+For multiline values, the viewport follows the cursor horizontally and vertically without altering the underlying buffer. Layout is recomputed after terminal resize events, including very narrow and transient zero-sized areas.
 
-Most exact keybindings will be documented after they are implemented and tested. Ctrl-C cancels in every mode, and `q` cancels from Normal mode.
+Arrow keys move in Insert mode. Normal and Visual modes support `h`, `j`, `k`, `l`, `0`, and `$`; `i`, `v`, `V`, and Ctrl-V enter editing modes; and `d`, `c`, and `y` act on Visual selections. Ctrl-C cancels in every mode, `q` cancels from Normal mode, and Ctrl-D accepts.
