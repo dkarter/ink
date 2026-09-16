@@ -15,6 +15,7 @@
   },
   "excludes": [
     "**/.playwright-mcp",
+    "**/.mise",
     "**/node_modules",
     "**/*-lock.json",
     "**/aube-lock.yaml",

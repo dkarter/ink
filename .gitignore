@@ -1,5 +1,7 @@
 /target/
-/.mise/
+/.mise/*
+!/.mise/locks/
+!/.mise/locks/**
 /.playwright-mcp/
 /website/.astro/
 /website/dist/
