@@ -25,6 +25,7 @@ jobs:
       pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
+      tag_verified: ${{ steps.verify-tag.outputs.verified }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
     steps:
@@ -50,8 +51,25 @@ jobs:
         if: ${{ steps.verify.outputs.current == 'true' }}
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
 
+      - name: Verify release tag targets approved commit
+        id: verify-tag
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          tag_commit="$(git rev-parse "${TAG_NAME}^{commit}")"
+          if [[ "${tag_commit}" != "${APPROVED_SHA}" ]]; then
+            echo "::error::Release tag ${TAG_NAME} targets ${tag_commit}, not CI-approved commit ${APPROVED_SHA}"
+            exit 1
+          fi
+          echo "verified=true" >> "${GITHUB_OUTPUT}"
+
   build-release:
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' && needs.release-please.outputs.tag_verified == 'true' }}
     needs: release-please
     strategy:
       fail-fast: false
@@ -85,10 +103,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout release
+      - name: Checkout approved commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Install Rust
         # v4.3.0 is an immutable GitHub release.
@@ -127,6 +146,20 @@ jobs:
             tar -C dist/package -czf "dist/${asset}" .
           fi
 
+      - name: Reverify release tag before asset upload
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          git fetch --force --no-tags --depth=1 origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          tag_commit="$(git rev-parse "${TAG_NAME}^{commit}")"
+          if [[ "${tag_commit}" != "${APPROVED_SHA}" ]]; then
+            echo "::error::Release tag ${TAG_NAME} targets ${tag_commit}, not CI-approved commit ${APPROVED_SHA}"
+            exit 1
+          fi
+
       - name: Upload asset to draft release
         shell: bash
         env:
@@ -135,7 +168,7 @@ jobs:
         run: gh release upload "${TAG_NAME}" dist/* --clobber
 
   publish-release:
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' && needs.release-please.outputs.tag_verified == 'true' }}
     needs:
       - release-please
       - build-release
@@ -143,6 +176,27 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Reverify release tag before publication
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          tag_commit="$(git rev-parse "${TAG_NAME}^{commit}")"
+          if [[ "${tag_commit}" != "${APPROVED_SHA}" ]]; then
+            echo "::error::Release tag ${TAG_NAME} targets ${tag_commit}, not CI-approved commit ${APPROVED_SHA}"
+            exit 1
+          fi
+
       - name: Publish release after all assets are uploaded
         env:
           GH_TOKEN: ${{ github.token }}
