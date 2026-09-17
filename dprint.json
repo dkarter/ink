@@ -22,8 +22,7 @@
     "**/dist",
     "**/target",
     "Cargo.lock",
-    "CHANGELOG.md",
-    "mise.toml"
+    "CHANGELOG.md"
   ],
   "plugins": [
     "npm:@dprint/typescript@0.96.1",

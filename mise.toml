@@ -1,4 +1,4 @@
-#:schema https://mise.jdx.dev/schema/mise.json
+# :schema https://mise.jdx.dev/schema/mise.json
 
 [shell_alias]
 ink = "cargo run --bin ink --"
@@ -25,7 +25,11 @@ npm.package_manager = "aube"
 postinstall = "lefthook install"
 
 [env]
+CARGO_TERM_PROGRESS_WHEN = "never"
 DO_NOT_TRACK = "1"
+MBX_DISPLAY = "plain"
+MBX_SAVINGS = "off"
+MBX_SUMMARY = "off"
 OPENSPEC_TELEMETRY = "0"
 
 [tasks.fmt]
