@@ -1,11 +1,5 @@
 #![forbid(unsafe_code)]
 
-macro_rules! deferred {
-    () => {
-        panic!("bootstrap scenario stub: product behavior is not implemented")
-    };
-}
-
 mod specs {
     fn wait_for_child(
         child: &mut (dyn portable_pty::Child + Send + Sync),

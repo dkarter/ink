@@ -17,7 +17,7 @@ use crate::{
     config::StartupMode,
     editor::{Editor, Mode},
     terminal::{CursorShape, PromptOutcome, TerminalSession},
-    text::single_line,
+    text::{single_line, textarea},
     ui::{CursorRequest, Input, InputState, Textarea, TextareaState},
 };
 
@@ -35,6 +35,10 @@ pub(crate) fn run(
     let seed = match kind {
         PromptKind::Input => single_line(seed),
         PromptKind::Textarea => seed.to_owned(),
+    };
+    let placeholder = match kind {
+        PromptKind::Input => std::borrow::Cow::Owned(single_line(&prompt.placeholder)),
+        PromptKind::Textarea => textarea(&prompt.placeholder),
     };
     let mut editor = match kind {
         PromptKind::Input => Editor::input(seed).expect("input seed is normalized"),
@@ -78,6 +82,7 @@ pub(crate) fn run(
                     let input_area = Rect::new(area.x, area.y, area.width, area.height.min(1));
                     Input::new(&editor)
                         .prompt(&prompt.prompt)
+                        .placeholder(&placeholder)
                         .palette(options.theme.palette)
                         .background(options.input_background)
                         .show_mode(false)
@@ -87,6 +92,7 @@ pub(crate) fn run(
                 }
                 PromptKind::Textarea => {
                     Textarea::new(&editor)
+                        .placeholder(&placeholder)
                         .palette(options.theme.palette)
                         .hint("ctrl-d submit  ctrl-c cancel")
                         .render(area, frame.buffer_mut(), &mut textarea_state);

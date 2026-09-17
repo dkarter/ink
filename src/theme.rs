@@ -73,6 +73,7 @@ pub enum ColorRole {
     Foreground,
     Background,
     Muted,
+    Placeholder,
     Accent,
     Border,
     Selection,
@@ -86,10 +87,11 @@ pub enum ColorRole {
 }
 
 impl ColorRole {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Foreground,
         Self::Background,
         Self::Muted,
+        Self::Placeholder,
         Self::Accent,
         Self::Border,
         Self::Selection,
@@ -108,6 +110,7 @@ impl ColorRole {
             Self::Foreground => "foreground",
             Self::Background => "background",
             Self::Muted => "muted",
+            Self::Placeholder => "placeholder",
             Self::Accent => "accent",
             Self::Border => "border",
             Self::Selection => "selection",
@@ -156,6 +159,7 @@ pub struct Palette {
     pub foreground: Color,
     pub background: Color,
     pub muted: Color,
+    pub placeholder: Color,
     pub accent: Color,
     pub border: Color,
     pub selection: Color,
@@ -175,6 +179,7 @@ impl Palette {
             ColorRole::Foreground => self.foreground,
             ColorRole::Background => self.background,
             ColorRole::Muted => self.muted,
+            ColorRole::Placeholder => self.placeholder,
             ColorRole::Accent => self.accent,
             ColorRole::Border => self.border,
             ColorRole::Selection => self.selection,
@@ -193,6 +198,7 @@ impl Palette {
             ColorRole::Foreground => self.foreground = color,
             ColorRole::Background => self.background = color,
             ColorRole::Muted => self.muted = color,
+            ColorRole::Placeholder => self.placeholder = color,
             ColorRole::Accent => self.accent = color,
             ColorRole::Border => self.border = color,
             ColorRole::Selection => self.selection = color,

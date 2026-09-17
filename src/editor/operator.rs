@@ -143,6 +143,9 @@ impl Editor {
     }
 
     pub(super) fn linewise_text(&self, first: usize, last: usize) -> String {
+        if self.text.is_empty() {
+            return String::new();
+        }
         let start = self.line_bounds(first).0;
         let end = self.line_bounds(last).1;
         let mut text = self.text[start..end].to_owned();

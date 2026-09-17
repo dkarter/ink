@@ -37,6 +37,7 @@ User configuration overrides individual semantic color roles after loading a bun
 | `foreground`           | Primary text              |
 | `background`           | Filled widget backgrounds |
 | `muted`                | Hints and secondary text  |
+| `placeholder`          | Empty-value guidance      |
 | `accent`               | Reserved accent color     |
 | `border`               | Reserved border color     |
 | `selection`            | Selected-cell background  |
@@ -59,8 +60,10 @@ normal-mode = "#7aa2f7"
 
 Single-line input leaves the terminal background untouched by default. Set the `background` role explicitly when a filled input row is preferred.
 
-Unknown theme names, color roles, or color values fail startup before terminal state changes. The future `placeholder` role belongs to RMS-109 and is not currently accepted.
+Unknown theme names, color roles, or color values fail startup before terminal state changes.
 
 ## Accessibility
 
 The interface design does not use color as the only signal for editing state. Every mode is also identified by a visible text label, and Insert mode uses a bar cursor while the other modes use a block cursor.
+
+Every bundled placeholder color has at least 4.5:1 contrast against its background.

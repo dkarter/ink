@@ -18,10 +18,11 @@ const REQUIRED_THEME_NAMES: [&str; 10] = [
     "solarized-dark",
     "solarized-light",
 ];
-const COLOR_ROLE_NAMES: [&str; 13] = [
+const COLOR_ROLE_NAMES: [&str; 14] = [
     "foreground",
     "background",
     "muted",
+    "placeholder",
     "accent",
     "border",
     "selection",
@@ -99,6 +100,11 @@ fn theme_002_select_every_bundled_theme() {
                 palette.background,
             ),
             ("muted/background", palette.muted, palette.background),
+            (
+                "placeholder/background",
+                palette.placeholder,
+                palette.background,
+            ),
             ("accent/background", palette.accent, palette.background),
             (
                 "insert-mode/background",

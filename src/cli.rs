@@ -49,6 +49,10 @@ struct InputPrompt {
     /// Text shown before an input value. Use an empty value to hide it.
     #[usage(long)]
     prompt: Option<String>,
+
+    /// Guidance shown while the editable value is empty.
+    #[usage(long)]
+    placeholder: Option<String>,
 }
 
 #[derive(Args)]
@@ -68,6 +72,10 @@ struct TextareaPrompt {
     /// Use the complete terminal area instead of an inline prompt.
     #[usage(long)]
     fullscreen: bool,
+
+    /// Guidance shown while the editable value is empty.
+    #[usage(long)]
+    placeholder: Option<String>,
 }
 
 #[derive(Args)]
@@ -91,6 +99,7 @@ pub enum PromptKind {
 pub struct PromptRuntimeOptions {
     pub value: Option<String>,
     pub prompt: String,
+    pub placeholder: String,
     pub fullscreen: bool,
 }
 
@@ -161,33 +170,37 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Input(prompt) => dispatch_prompt(
-            prompt.value,
             prompt.normal,
             prompt.theme,
             PromptKind::Input,
-            prompt.prompt.unwrap_or_default(),
-            false,
+            PromptRuntimeOptions {
+                value: prompt.value,
+                prompt: prompt.prompt.unwrap_or_default(),
+                placeholder: prompt.placeholder.unwrap_or_default(),
+                fullscreen: false,
+            },
             runtime,
         ),
         Command::Textarea(prompt) => dispatch_prompt(
-            prompt.value,
             prompt.normal,
             prompt.theme,
             PromptKind::Textarea,
-            String::new(),
-            prompt.fullscreen,
+            PromptRuntimeOptions {
+                value: prompt.value,
+                prompt: String::new(),
+                placeholder: prompt.placeholder.unwrap_or_default(),
+                fullscreen: prompt.fullscreen,
+            },
             runtime,
         ),
     }
 }
 
 fn dispatch_prompt(
-    value: Option<String>,
     normal: bool,
     theme: Option<String>,
     kind: PromptKind,
-    prompt: String,
-    fullscreen: bool,
+    prompt: PromptRuntimeOptions,
     runtime: &mut impl CliRuntime,
 ) -> ExitCode {
     let theme = match theme.map(|theme| theme.parse::<ThemeName>()).transpose() {
@@ -209,15 +222,7 @@ fn dispatch_prompt(
         theme,
     };
     let resolved_options = resolve_prompt_options(&config, &cli_options);
-    runtime.run_prompt(
-        kind,
-        PromptRuntimeOptions {
-            value,
-            prompt,
-            fullscreen,
-        },
-        resolved_options,
-    )
+    runtime.run_prompt(kind, prompt, resolved_options)
 }
 
 /// Parse explicit arguments from the compiled CLI tables and dispatch them to a runtime.

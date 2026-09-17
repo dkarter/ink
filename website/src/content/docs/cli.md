@@ -15,15 +15,18 @@ description: Commands, options, output, and exit statuses for Ink.
 
 The same options apply to `input` and `textarea`.
 
-| Option           | Behavior                                                   |
-| ---------------- | ---------------------------------------------------------- |
-| `--value <TEXT>` | Seed the editable value; takes precedence over piped input |
-| `--normal`       | Start in Normal mode instead of Insert mode                |
-| `--theme <NAME>` | Select a bundled or configured theme                       |
+| Option                 | Behavior                                                   |
+| ---------------------- | ---------------------------------------------------------- |
+| `--value <TEXT>`       | Seed the editable value; takes precedence over piped input |
+| `--normal`             | Start in Normal mode instead of Insert mode                |
+| `--theme <NAME>`       | Select a bundled or configured theme                       |
+| `--placeholder <TEXT>` | Show guidance while the editable value is empty            |
 
 `input` also accepts `--prompt <TEXT>` and shows no prefix by default. `textarea` uses five editable rows plus a status row by default and accepts `--fullscreen` to use the complete terminal.
 
 Input removes LF, CRLF, and lone CR line breaks from explicit values, piped seeds, and bracketed paste. Textarea uses LF for its logical line model, normalizing CRLF and lone CR from those sources to LF.
+
+Placeholders are presentation-only and never become part of the editable or accepted value. Input removes line breaks from placeholder text, while textarea preserves its logical lines.
 
 ## Completion targets
 

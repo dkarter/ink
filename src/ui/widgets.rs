@@ -40,6 +40,7 @@ impl InputState {
 pub struct Input<'a> {
     editor: &'a Editor,
     prompt: &'a str,
+    placeholder: &'a str,
     palette: Option<Palette>,
     show_mode: bool,
     background: bool,
@@ -51,6 +52,7 @@ impl<'a> Input<'a> {
         Self {
             editor,
             prompt: "",
+            placeholder: "",
             palette: None,
             show_mode: true,
             background: false,
@@ -60,6 +62,12 @@ impl<'a> Input<'a> {
     #[must_use]
     pub const fn prompt(mut self, prompt: &'a str) -> Self {
         self.prompt = prompt;
+        self
+    }
+
+    #[must_use]
+    pub const fn placeholder(mut self, placeholder: &'a str) -> Self {
+        self.placeholder = placeholder;
         self
     }
 
@@ -154,18 +162,25 @@ impl StatefulWidget for Input<'_> {
                 buf,
             );
         }
+        let ranges = self.editor.selection_ranges();
         render_text(
-            self.editor.text(),
+            if self.editor.text().is_empty() {
+                self.placeholder
+            } else {
+                self.editor.text()
+            },
             state.viewport.left(),
             editor_x,
             area.y,
             editor_width,
-            TextDecoration::selected(
-                0,
-                &self.editor.selection_ranges(),
-                input_style,
-                self.palette.map(selection_style),
-            ),
+            if self.editor.text().is_empty() {
+                TextDecoration::plain(
+                    self.palette
+                        .map(|palette| placeholder_input_style(palette, self.background)),
+                )
+            } else {
+                TextDecoration::selected(0, &ranges, input_style, self.palette.map(selection_style))
+            },
             buf,
         );
         state.cursor = Some(CursorRequest::new(
@@ -199,6 +214,7 @@ impl TextareaState {
 #[derive(Clone, Copy, Debug)]
 pub struct Textarea<'a> {
     editor: &'a Editor,
+    placeholder: &'a str,
     palette: Option<Palette>,
     hint: &'a str,
 }
@@ -208,6 +224,7 @@ impl<'a> Textarea<'a> {
     pub const fn new(editor: &'a Editor) -> Self {
         Self {
             editor,
+            placeholder: "",
             palette: None,
             hint: "",
         }
@@ -216,6 +233,12 @@ impl<'a> Textarea<'a> {
     #[must_use]
     pub const fn palette(mut self, palette: Palette) -> Self {
         self.palette = Some(palette);
+        self
+    }
+
+    #[must_use]
+    pub const fn placeholder(mut self, placeholder: &'a str) -> Self {
+        self.placeholder = placeholder;
         self
     }
 
@@ -280,8 +303,14 @@ impl StatefulWidget for Textarea<'_> {
         }
 
         let ranges = self.editor.selection_ranges();
+        let placeholder = self.editor.text().is_empty();
+        let displayed = if placeholder {
+            self.placeholder
+        } else {
+            self.editor.text()
+        };
         let mut byte = 0;
-        for (line_index, line) in self.editor.text().split('\n').enumerate() {
+        for (line_index, line) in displayed.split('\n').enumerate() {
             if line_index < state.viewport.top() {
                 byte += line.len() + 1;
                 continue;
@@ -297,12 +326,16 @@ impl StatefulWidget for Textarea<'_> {
                 area.y
                     .saturating_add(u16::try_from(row).unwrap_or(u16::MAX)),
                 text_width,
-                TextDecoration::selected(
-                    byte,
-                    &ranges,
-                    self.palette.map(base_style),
-                    self.palette.map(selection_style),
-                ),
+                if placeholder {
+                    TextDecoration::plain(self.palette.map(placeholder_style))
+                } else {
+                    TextDecoration::selected(
+                        byte,
+                        &ranges,
+                        self.palette.map(base_style),
+                        self.palette.map(selection_style),
+                    )
+                },
                 buf,
             );
             byte += line.len() + 1;
@@ -482,4 +515,19 @@ fn muted_style(palette: Palette) -> Style {
     Style::default()
         .fg(palette.muted.into())
         .bg(palette.background.into())
+}
+
+fn placeholder_style(palette: Palette) -> Style {
+    Style::default()
+        .fg(palette.placeholder.into())
+        .bg(palette.background.into())
+}
+
+fn placeholder_input_style(palette: Palette, background: bool) -> Style {
+    let style = Style::default().fg(palette.placeholder.into());
+    if background {
+        style.bg(palette.background.into())
+    } else {
+        style
+    }
 }

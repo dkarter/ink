@@ -16,6 +16,8 @@ Ink will start in Insert mode by default. The accepted text will be printed to s
 
 The input has no prefix by default. Add one with `--prompt "Name: "`.
 
+Add empty-state guidance with `--placeholder "Release title"`. It disappears when you type and is never included in the accepted value.
+
 ## Edit multiple lines
 
 `ink textarea` edits prose and other multiline values. Press Ctrl-D to accept:
@@ -28,6 +30,8 @@ gh release create v1.0.0 --notes "$notes"
 Textarea shows five editable rows in the command workflow by default. Use `ink textarea --fullscreen` for the complete terminal area.
 
 Textarea normalizes CRLF and lone CR line endings in seeds and pasted text to LF.
+
+Textarea placeholders can span multiple lines, for example `ink textarea --placeholder $'Summary\nDetails'`.
 
 ## Seed from a pipe
 
