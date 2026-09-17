@@ -1,11 +1,17 @@
 ---
 title: Install
-description: Current installation status and source build instructions for Ink.
+description: Install a prebuilt Ink release or build Ink from source.
 ---
 
-:::caution[Not released]
-Ink does not have a supported package installation method yet. Build the current implementation from source while the project prepares its first release.
-:::
+## Prebuilt release
+
+Install the latest GitHub release with mise:
+
+```sh
+mise use --global github:dkarter/ink
+```
+
+Mise selects the archive for the current supported platform. GitHub Releases provide Linux x86_64, Linux arm64, macOS arm64, and Windows x86_64 builds.
 
 ## Build from source
 
@@ -18,10 +24,6 @@ cargo build
 ```
 
 This produces a development binary at `target/debug/ink` with interactive input, textarea, help, and shell completion commands.
-
-## Planned distribution
-
-No release channel has been committed to yet. Installation commands will be documented here only after a usable version is published. Track [GitHub releases](https://github.com/dkarter/ink/releases) for that milestone.
 
 ## Requirements for future prompt use
 

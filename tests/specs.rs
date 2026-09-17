@@ -31,6 +31,7 @@ mod specs {
     mod configuration;
     mod placeholders;
     mod presentation;
+    mod releases;
     mod terminal_io;
     mod themes;
     mod vim_editing;

@@ -2,6 +2,14 @@
 
 Ink is a fast, composable terminal input prompt built with Rust, Ratatui, and Crossterm. It takes inspiration from `gum input` and adds first-class Vim editing for single-line input and multiline textareas.
 
+## Install
+
+Install a prebuilt release with mise:
+
+```sh
+mise use --global github:dkarter/ink
+```
+
 ## Interface
 
 ```sh

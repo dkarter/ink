@@ -20,15 +20,12 @@ jobs:
   release-please:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      pull-requests: write
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      release_sha: ${{ steps.release.outputs.sha }}
+      release_created: ${{ steps.release-context.outputs.active }}
+      release_sha: ${{ steps.release-context.outputs.release_sha }}
       tag_verified: ${{ steps.verify-tag.outputs.verified }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      tag_name: ${{ steps.release-context.outputs.tag_name }}
+      version: ${{ steps.release-context.outputs.version }}
     steps:
       - name: Checkout triggering commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,18 +44,66 @@ jobs:
             echo "current=true" >> "${GITHUB_OUTPUT}"
           fi
 
+      - name: Generate release app token
+        id: release_app_token
+        if: ${{ steps.verify.outputs.current == 'true' }}
+        # v3.2.0 is an immutable GitHub release.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Prepare release
         id: release
         if: ${{ steps.verify.outputs.current == 'true' }}
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          # App-authored release PRs trigger the pull_request CI workflow.
+          token: ${{ steps.release_app_token.outputs.token }}
+
+      - name: Resolve new or unfinished release
+        id: release-context
+        if: ${{ steps.verify.outputs.current == 'true' }}
+        shell: bash
+        env:
+          ACTION_RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          ACTION_RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          ACTION_TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          ACTION_VERSION: ${{ steps.release.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "${ACTION_RELEASE_CREATED}" == "true" ]]; then
+            release_sha="${ACTION_RELEASE_SHA}"
+            tag_name="${ACTION_TAG_NAME}"
+            version="${ACTION_VERSION}"
+          else
+            version="$(jq -r '.["."]' .release-please-manifest.json)"
+            tag_name="v${version}"
+            if ! release_json="$(gh release view "${tag_name}" --json isDraft,targetCommitish)"; then
+              exit 0
+            fi
+            if [[ "$(jq -r '.isDraft' <<< "${release_json}")" != "true" ]]; then
+              exit 0
+            fi
+            release_sha="$(jq -r '.targetCommitish' <<< "${release_json}")"
+          fi
+          {
+            echo "active=true"
+            echo "release_sha=${release_sha}"
+            echo "tag_name=${tag_name}"
+            echo "version=${version}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Verify release tag targets release commit
         id: verify-tag
-        if: ${{ steps.release.outputs.release_created == 'true' }}
+        if: ${{ steps.release-context.outputs.active == 'true' }}
         shell: bash
         env:
-          RELEASE_SHA: ${{ steps.release.outputs.sha }}
-          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          RELEASE_SHA: ${{ steps.release-context.outputs.release_sha }}
+          TAG_NAME: ${{ steps.release-context.outputs.tag_name }}
         run: |
           set -euo pipefail
           git fetch --no-tags --depth=1 origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
