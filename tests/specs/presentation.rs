@@ -44,36 +44,59 @@ fn ui_002_mode_indicator_names_every_mode() {
         let area = Rect::new(0, 0, 20, 3);
         let mut buffer = Buffer::empty(area);
         Textarea::new(&editor).render(area, &mut buffer, &mut state);
-        assert_eq!(buffer_row(&buffer, area.bottom() - 1).trim(), expected);
+        assert!(buffer_row(&buffer, area.bottom() - 1).starts_with(&format!(" {expected} ")));
 
         let area = Rect::new(0, 0, 20, 1);
         let mut buffer = Buffer::empty(area);
         Textarea::new(&editor).render(area, &mut buffer, &mut state);
-        assert!(buffer_row(&buffer, 0).contains(expected));
+        assert!(buffer_row(&buffer, 0).contains(&format!(" {expected} ")));
         assert!(area.contains(state.cursor().unwrap().position));
 
-        let area = Rect::new(0, 0, u16::try_from(expected.len() + 1).unwrap(), 1);
+        let area = Rect::new(0, 0, u16::try_from(expected.len() + 2).unwrap(), 1);
         let mut buffer = Buffer::empty(area);
         Textarea::new(&editor).render(area, &mut buffer, &mut state);
         let row = buffer_row(&buffer, 0);
         assert!(row.starts_with('t'));
         assert!(!row.contains(expected));
         assert!(area.contains(state.cursor().unwrap().position));
+
+        let area = Rect::new(0, 0, u16::try_from(expected.len() + 3).unwrap(), 1);
+        let mut buffer = Buffer::empty(area);
+        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+        assert_eq!(buffer_row(&buffer, 0), format!("t {expected} "));
+        assert!(area.contains(state.cursor().unwrap().position));
+
+        let area = Rect::new(0, 0, u16::try_from(expected.len() + 1).unwrap(), 3);
+        let mut buffer = Buffer::empty(area);
+        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+        assert!(!buffer_row(&buffer, area.bottom() - 1).contains(expected));
+        assert!(area.contains(state.cursor().unwrap().position));
     }
 
     let editor = Editor::textarea("界");
     let mut state = TextareaState::default();
-    let area = Rect::new(0, 0, 8, 1);
+    let area = Rect::new(0, 0, 9, 1);
     let mut buffer = Buffer::empty(area);
     Textarea::new(&editor).render(area, &mut buffer, &mut state);
     assert_eq!(buffer.cell((0, 0)).unwrap().symbol(), "界");
     assert!(!buffer_row(&buffer, 0).contains("NORMAL"));
 
-    let area = Rect::new(0, 0, 9, 1);
+    let area = Rect::new(0, 0, 10, 1);
     let mut buffer = Buffer::empty(area);
     Textarea::new(&editor).render(area, &mut buffer, &mut state);
     assert_eq!(buffer.cell((0, 0)).unwrap().symbol(), "界");
-    assert!(buffer_row(&buffer, 0).contains("NORMAL"));
+    assert!(buffer_row(&buffer, 0).contains(" NORMAL "));
+
+    let area = Rect::new(0, 0, 0, 1);
+    let mut buffer = Buffer::empty(area);
+    Textarea::new(&editor).render(area, &mut buffer, &mut state);
+    assert_eq!(state.cursor(), None);
+
+    let input = Editor::input("text").unwrap();
+    let area = Rect::new(0, 0, 12, 1);
+    let mut buffer = Buffer::empty(area);
+    Input::new(&input).render(area, &mut buffer, &mut InputState::default());
+    assert!(buffer_row(&buffer, 0).ends_with("NORMAL"));
 }
 
 #[test]

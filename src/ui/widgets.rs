@@ -263,7 +263,7 @@ impl StatefulWidget for Textarea<'_> {
             area.height
         };
         let mode = mode_label(self.editor.mode());
-        let mode_width = text_width(mode);
+        let mode_width = text_width(mode) + 2;
         let available = usize::from(area.width);
         let cursor = self.editor.cursor();
         let line_count = self
@@ -285,8 +285,8 @@ impl StatefulWidget for Textarea<'_> {
             1
         };
         let (text_width, inline_mode_x) =
-            if area.height == 1 && available > mode_width + minimum_editor_width {
-                (available - mode_width - 1, Some(available - mode_width))
+            if area.height == 1 && available >= mode_width + minimum_editor_width {
+                (available - mode_width, Some(available - mode_width))
             } else {
                 (available, None)
             };
@@ -355,29 +355,23 @@ impl StatefulWidget for Textarea<'_> {
                     buf,
                 );
             }
-            render_text(
-                mode,
-                0,
-                area.x,
-                area.y.saturating_add(area.height - 1),
-                usize::from(area.width),
-                TextDecoration::plain(
-                    self.palette
-                        .map(|palette| mode_style(palette, self.editor.mode())),
-                ),
-                buf,
-            );
+            if available >= mode_width {
+                render_padded_mode(
+                    mode,
+                    area.x,
+                    area.y.saturating_add(area.height - 1),
+                    self.palette,
+                    self.editor.mode(),
+                    buf,
+                );
+            }
         } else if let Some(x) = inline_mode_x {
-            render_text(
+            render_padded_mode(
                 mode,
-                0,
                 area.x.saturating_add(u16::try_from(x).unwrap_or(u16::MAX)),
                 area.y,
-                mode_width,
-                TextDecoration::plain(
-                    self.palette
-                        .map(|palette| mode_style(palette, self.editor.mode())),
-                ),
+                self.palette,
+                self.editor.mode(),
                 buf,
             );
         }
@@ -389,6 +383,31 @@ impl StatefulWidget for Textarea<'_> {
             self.editor.mode(),
         ));
     }
+}
+
+fn render_padded_mode(
+    label: &str,
+    x: u16,
+    y: u16,
+    palette: Option<Palette>,
+    mode: Mode,
+    buf: &mut Buffer,
+) {
+    let label_width = text_width(label);
+    let style = palette.map(|palette| mode_style(palette, mode));
+    buf.set_style(
+        Rect::new(x, y, u16::try_from(label_width + 2).unwrap_or(u16::MAX), 1),
+        style.unwrap_or_default(),
+    );
+    render_text(
+        label,
+        0,
+        x.saturating_add(1),
+        y,
+        label_width,
+        TextDecoration::plain(style),
+        buf,
+    );
 }
 
 fn render_text(

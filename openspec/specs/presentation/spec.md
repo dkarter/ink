@@ -25,6 +25,9 @@ Ink SHALL display the current mode using a visible textual indicator that does n
 - GIVEN the user transitions through supported modes
 - WHEN each frame is rendered
 - THEN the indicator reads INSERT, NORMAL, VISUAL, VISUAL LINE, or VISUAL BLOCK as applicable
+- AND textarea renders one blank cell on each side of the complete mode name
+- AND input mode indicators remain unchanged
+- AND narrow or zero-width areas omit optional textarea mode chrome before rendering outside the available bounds
 
 ### Requirement: Adapt single-line layout
 
