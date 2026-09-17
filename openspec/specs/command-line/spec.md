@@ -102,3 +102,13 @@ Ink SHALL render input and textarea as compact inline prompts by default, while 
 - WHEN it accepts, cancels, errors, or panics
 - THEN every owned compact row is cleared or the fullscreen alternate screen is left
 - AND the command workflow screen and cursor are restored before control returns
+
+### Requirement: Discover utility commands
+
+Ink SHALL expose theme selection and configuration validation through command help and generated shell completions.
+
+#### Scenario: Advertise theme and config commands {#CLI-013}
+
+- GIVEN the compiled Ink command definition
+- WHEN a user requests help or generates shell completions
+- THEN `theme` and `config validate` are discoverable without consulting website documentation

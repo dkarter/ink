@@ -207,7 +207,7 @@ fn io_004_exit_statuses_identify_outcomes() {
     struct UnreachedRuntime;
 
     impl CliRuntime for UnreachedRuntime {
-        fn write_stdout(&mut self, _: &str) {
+        fn write_stdout(&mut self, _: &str) -> io::Result<()> {
             unreachable!()
         }
 
@@ -216,6 +216,14 @@ fn io_004_exit_statuses_identify_outcomes() {
             _: PromptKind,
             _: PromptRuntimeOptions,
             _: ResolvedPromptOptions,
+        ) -> std::process::ExitCode {
+            unreachable!()
+        }
+
+        fn run_theme(
+            &mut self,
+            _: ink::config::ThemeName,
+            _: &ink::config::ConfigPaths,
         ) -> std::process::ExitCode {
             unreachable!()
         }

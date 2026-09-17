@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dkarter.github.io/ink/schema/ink-config.schema.json",
+  "title": "Ink configuration",
+  "description": "Configuration for the Ink terminal input prompt.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "normal": {
+      "description": "Start prompts in Vim Normal mode instead of Insert mode.",
+      "type": "boolean",
+      "default": false
+    },
+    "theme": {
+      "description": "Bundled color palette used by prompts.",
+      "type": "string",
+      "default": "tokyo-night",
+      "anyOf": [
+        {
+          "enum": [
+            "tokyo-night",
+            "catppuccin-latte",
+            "catppuccin-frappe",
+            "catppuccin-macchiato",
+            "catppuccin-mocha",
+            "dracula",
+            "gruvbox-dark",
+            "nord",
+            "solarized-dark",
+            "solarized-light"
+          ]
+        },
+        {
+          "pattern": "^(?:[Tt][Oo][Kk][Yy][Oo]-[Nn][Ii][Gg][Hh][Tt]|[Cc][Aa][Tt][Pp][Pp][Uu][Cc][Cc][Ii][Nn]-(?:[Ll][Aa][Tt][Tt][Ee]|[Ff][Rr][Aa][Pp][Pp][Ee]|[Mm][Aa][Cc][Cc][Hh][Ii][Aa][Tt][Oo]|[Mm][Oo][Cc][Hh][Aa])|[Dd][Rr][Aa][Cc][Uu][Ll][Aa]|[Gg][Rr][Uu][Vv][Bb][Oo][Xx]-[Dd][Aa][Rr][Kk]|[Nn][Oo][Rr][Dd]|[Ss][Oo][Ll][Aa][Rr][Ii][Zz][Ee][Dd]-(?:[Dd][Aa][Rr][Kk]|[Ll][Ii][Gg][Hh][Tt]))$"
+        }
+      ]
+    },
+    "colors": {
+      "description": "Semantic #RRGGBB color overrides applied after the selected theme.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "foreground": { "$ref": "#/$defs/color", "description": "Primary text." },
+        "background": { "$ref": "#/$defs/color", "description": "Filled widget backgrounds." },
+        "muted": { "$ref": "#/$defs/color", "description": "Hints and secondary text." },
+        "placeholder": { "$ref": "#/$defs/color", "description": "Empty-value guidance." },
+        "accent": { "$ref": "#/$defs/color", "description": "Accent text and highlights." },
+        "border": { "$ref": "#/$defs/color", "description": "Widget borders." },
+        "selection": { "$ref": "#/$defs/color", "description": "Selected-cell background." },
+        "selection-foreground": { "$ref": "#/$defs/color", "description": "Selected-cell text." },
+        "cursor": { "$ref": "#/$defs/color", "description": "Cursor color where supported." },
+        "insert-mode": { "$ref": "#/$defs/color", "description": "Insert mode indicator." },
+        "normal-mode": { "$ref": "#/$defs/color", "description": "Normal mode indicator." },
+        "visual-mode": { "$ref": "#/$defs/color", "description": "Visual mode indicators." },
+        "error": { "$ref": "#/$defs/color", "description": "Error states." },
+        "warning": { "$ref": "#/$defs/color", "description": "Warning states." }
+      }
+    }
+  },
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    }
+  }
+}

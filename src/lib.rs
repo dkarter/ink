@@ -12,4 +12,5 @@ pub mod startup_bench;
 pub mod terminal;
 mod text;
 pub mod theme;
+mod theme_browser;
 pub mod ui;

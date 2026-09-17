@@ -19,7 +19,9 @@ struct RuntimeProbe {
 }
 
 impl CliRuntime for RuntimeProbe {
-    fn write_stdout(&mut self, _: &str) {}
+    fn write_stdout(&mut self, _: &str) -> std::io::Result<()> {
+        Ok(())
+    }
 
     fn run_prompt(
         &mut self,
@@ -29,6 +31,10 @@ impl CliRuntime for RuntimeProbe {
     ) -> ExitCode {
         self.prompts.push((kind, prompt));
         ExitCode::SUCCESS
+    }
+
+    fn run_theme(&mut self, _: ThemeName, _: &ink::config::ConfigPaths) -> ExitCode {
+        unreachable!()
     }
 }
 

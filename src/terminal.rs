@@ -1,7 +1,7 @@
 //! Terminal I/O lifecycle and runtime orchestration.
 
 use std::{
-    io,
+    io::{self, Write},
     ops::Range,
     panic::{self, AssertUnwindSafe},
     process::ExitCode,
@@ -95,6 +95,19 @@ pub struct TerminalSession {
     restoration: Arc<Restoration>,
     _panic_registration: panic_hook::Registration,
     _session_lock: MutexGuard<'static, ()>,
+}
+
+pub(crate) struct SessionWriter<'a>(pub(crate) &'a TerminalSession);
+
+impl Write for SessionWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.write_ui(bytes)?;
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()
+    }
 }
 
 impl TerminalSession {
@@ -430,25 +443,13 @@ where
         },
     };
 
-    let mut session = match TerminalSession::start(device) {
-        Ok(session) => session,
-        Err(error) => return runtime_failure(io, &format!("terminal setup failed: {error}")),
-    };
-
-    let outcome = panic::catch_unwind(AssertUnwindSafe(|| prompt(&mut session, &seed)));
-    let restoration = session.restore();
-    drop(session);
-
-    let outcome = match outcome {
+    let outcome = match run_session(io, device, |session| prompt(session, &seed)) {
         Ok(outcome) => outcome,
-        Err(payload) => panic::resume_unwind(payload),
+        Err(status) => return status,
     };
-    if let Err(error) = restoration {
-        return runtime_failure(io, &format!("terminal restoration failed: {error}"));
-    }
 
     match outcome {
-        Ok(PromptOutcome::Accepted(mut value)) => {
+        PromptOutcome::Accepted(mut value) => {
             value.push('\n');
             if io.write_stdout(value.as_bytes()).is_err() {
                 ExitStatus::RuntimeFailure
@@ -456,8 +457,58 @@ where
                 ExitStatus::Accepted
             }
         }
-        Ok(PromptOutcome::Cancelled(_)) => ExitStatus::Cancelled,
-        Err(error) => runtime_failure(io, &format!("prompt failed: {error}")),
+        PromptOutcome::Cancelled(_) => ExitStatus::Cancelled,
+    }
+}
+
+/// Run a fullscreen utility UI without reading stdin or emitting an accepted value.
+pub(crate) fn run_utility<T, F>(io: &mut impl RuntimeIo, utility: F) -> Result<T, ExitStatus>
+where
+    F: FnOnce(&mut TerminalSession) -> io::Result<T>,
+{
+    let device = match io.open_controlling_terminal() {
+        Ok(device) => device,
+        Err(_) => {
+            let _ = io.write_stderr(NO_TTY_DIAGNOSTIC.as_bytes());
+            return Err(ExitStatus::RuntimeFailure);
+        }
+    };
+    run_session(io, device, utility)
+}
+
+fn run_session<T, F>(
+    io: &mut impl RuntimeIo,
+    device: Arc<dyn TerminalDevice>,
+    operation: F,
+) -> Result<T, ExitStatus>
+where
+    F: FnOnce(&mut TerminalSession) -> io::Result<T>,
+{
+    let mut session = match TerminalSession::start(device) {
+        Ok(session) => session,
+        Err(error) => {
+            return Err(runtime_failure(
+                io,
+                &format!("terminal setup failed: {error}"),
+            ));
+        }
+    };
+    let outcome = panic::catch_unwind(AssertUnwindSafe(|| operation(&mut session)));
+    let restoration = session.restore();
+    drop(session);
+    let outcome = match outcome {
+        Ok(outcome) => outcome,
+        Err(payload) => panic::resume_unwind(payload),
+    };
+    if let Err(error) = restoration {
+        return Err(runtime_failure(
+            io,
+            &format!("terminal restoration failed: {error}"),
+        ));
+    }
+    match outcome {
+        Ok(value) => Ok(value),
+        Err(error) => Err(runtime_failure(io, &format!("terminal UI failed: {error}"))),
     }
 }
 

@@ -13,6 +13,7 @@ pub(super) struct PromptResult {
     pub(super) status: u32,
     pub(super) stdout: Vec<u8>,
     pub(super) terminal: Vec<u8>,
+    pub(super) config: Option<Vec<u8>>,
 }
 
 pub(super) struct ResizeObservation {
@@ -89,7 +90,8 @@ pub(super) fn prompt_with_resizes(
                 .expect("send PTY output chunk");
             if !ready
                 && (output.windows(6).any(|bytes| bytes == b"INSERT")
-                    || output.windows(6).any(|bytes| bytes == b"NORMAL"))
+                    || output.windows(6).any(|bytes| bytes == b"NORMAL")
+                    || output.windows(10).any(|bytes| bytes == b"Ink themes"))
             {
                 ready = true;
                 ready_sender.send(()).expect("signal rendered prompt");
@@ -139,6 +141,7 @@ pub(super) fn prompt_with_resizes(
             status,
             stdout: fs::read(stdout).expect("read clean stdout"),
             terminal,
+            config: fs::read(config.join("ink/config.toml")).ok(),
         },
         observations,
     )
@@ -359,6 +362,56 @@ fn cli_012_remove_prompt_ui_after_completion() {
         assert!(entered < left);
         assert!(result.terminal.ends_with(b"\x1b[0 q\x1b[?2004l\x1b[?25h"));
     }
+}
+
+#[test]
+fn cli_013_advertise_theme_and_config_commands() {
+    let help = std::process::Command::new(env!("CARGO_BIN_EXE_ink"))
+        .arg("--help")
+        .output()
+        .expect("run help");
+    assert!(help.status.success());
+    let help = String::from_utf8(help.stdout).expect("help is UTF-8");
+    assert!(help.contains("theme"), "{help}");
+    assert!(help.contains("config"), "{help}");
+
+    let config_help = std::process::Command::new(env!("CARGO_BIN_EXE_ink"))
+        .args(["config", "--help"])
+        .output()
+        .expect("run config help");
+    assert!(config_help.status.success());
+    assert!(String::from_utf8_lossy(&config_help.stdout).contains("validate"));
+
+    let completion = std::process::Command::new(env!("CARGO_BIN_EXE_ink"))
+        .args(["completion", "bash"])
+        .output()
+        .expect("generate completion");
+    let completion = String::from_utf8(completion.stdout).expect("completion is UTF-8");
+    assert!(completion.contains("ink __complete_word__"));
+
+    let top_level = std::process::Command::new(env!("CARGO_BIN_EXE_ink"))
+        .args(["__complete_word__", "--help"])
+        .output()
+        .expect("complete top-level command");
+    let top_level = String::from_utf8(top_level.stdout).expect("candidates are UTF-8");
+    assert!(top_level.lines().any(|candidate| candidate == "theme"));
+    assert!(top_level.lines().any(|candidate| candidate == "config"));
+
+    let nested = std::process::Command::new(env!("CARGO_BIN_EXE_ink"))
+        .args([
+            "__complete_word__",
+            "--shell",
+            "bash",
+            "--line",
+            "ink config ",
+            "--bash-word",
+            "",
+            "--bash-wordbreaks",
+            " ",
+        ])
+        .output()
+        .expect("complete config command");
+    assert_eq!(String::from_utf8_lossy(&nested.stdout).trim(), "validate");
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {

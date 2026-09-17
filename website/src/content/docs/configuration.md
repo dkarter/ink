@@ -30,7 +30,8 @@ The configuration file accepts these settings:
 - `theme`: a case-insensitive bundled theme name, using hyphens as separators (`tokyo-night` by default)
 - `colors`: semantic `#RRGGBB` overrides applied after the selected theme
 
-```toml
+```text
+#:schema https://dkarter.github.io/ink/schema/ink-config.schema.json
 normal = true
 theme = "catppuccin-mocha"
 
@@ -40,6 +41,22 @@ normal-mode = "#7aa2f7"
 ```
 
 See [Themes](../themes/#semantic-overrides) for every supported color role.
+
+## Schema and validation
+
+Ink publishes its complete TOML schema at [`https://dkarter.github.io/ink/schema/ink-config.schema.json`](https://dkarter.github.io/ink/schema/ink-config.schema.json). Config files written by `ink theme` include the Taplo-compatible association automatically. Add this first line to existing hand-written files for editor completion and validation:
+
+```text
+#:schema https://dkarter.github.io/ink/schema/ink-config.schema.json
+```
+
+Validate the same path Ink uses during normal startup:
+
+```sh
+ink config validate
+```
+
+A valid file, or an absent file that uses defaults, exits `0` with a concise message. Invalid or unreadable files exit `1` with a path-bearing diagnostic. Command usage errors exit `2`.
 
 ## Invalid settings
 

@@ -9,6 +9,8 @@ description: Commands, options, output, and exit statuses for Ink.
 | ------------------------ | ---------------------------- |
 | `ink input`              | Edit one logical line        |
 | `ink textarea`           | Edit multiline text          |
+| `ink theme`              | Preview and save a theme     |
+| `ink config validate`    | Validate resolved config     |
 | `ink completion <shell>` | Generate a completion script |
 
 ## Prompt options
@@ -37,6 +39,8 @@ ink completion zsh
 ```
 
 Completion scripts are generated from the same static CLI definition used for parsing. Generation does not open a prompt or access the controlling terminal.
+
+Generated completions include the `theme` command and nested `config validate` command.
 
 ## Output contract
 

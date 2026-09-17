@@ -28,6 +28,10 @@ Theme names are matched case-insensitively with hyphens as separators. For examp
 ink textarea --theme catppuccin-mocha
 ```
 
+## Interactive browser
+
+Run `ink theme` to browse all bundled palettes. The browser starts on the configured theme, or Tokyo Night when none is configured, and applies each palette as you move with Up/Down or `j`/`k`. Enter saves the highlighted theme; Escape, `q`, or Ctrl-C cancels without changing configuration. Controls remain visible in narrow layouts.
+
 ## Semantic overrides
 
 User configuration overrides individual semantic color roles after loading a bundled base palette. Roles not overridden retain the selected theme’s values.

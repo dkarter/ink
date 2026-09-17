@@ -275,6 +275,89 @@ fn theme_005_reject_unknown_theme_values() {
     }
 }
 
+#[test]
+fn theme_006_navigate_live_theme_previews() {
+    let result = super::command_line::prompt_with_config(
+        "exec {ink} theme",
+        b"j\x03",
+        Some("theme = \"nord\"\n"),
+    );
+    assert_eq!(result.status, 130);
+    let terminal = String::from_utf8_lossy(&result.terminal);
+    assert!(terminal.contains("Ink themes"));
+    assert!(terminal.contains("nord"));
+    assert!(terminal.contains("solarized-dark"));
+    assert!(terminal.contains("enter save"));
+    for name in [ThemeName::Nord, ThemeName::SolarizedDark] {
+        let palette = theme::resolve(name, &Default::default()).palette;
+        assert!(terminal_has_color(
+            &result.terminal,
+            "48",
+            palette.background
+        ));
+    }
+}
+
+#[test]
+fn theme_007_persist_an_accepted_theme() {
+    let existing = "# personal setting\nnormal = true\ntheme = \"nord\" # chosen before\n";
+    let result =
+        super::command_line::prompt_with_config("exec {ink} theme", b"k\r", Some(existing));
+    assert_eq!(result.status, 0);
+    assert!(result.stdout.is_empty());
+    let config =
+        String::from_utf8(result.config.expect("updated config")).expect("config is UTF-8");
+    assert!(config.contains("normal = true"));
+    assert!(config.contains("# personal setting"));
+    assert!(config.contains("theme = \"gruvbox-dark\" # chosen before"));
+    assert!(config.starts_with(&format!("#:schema {}\n", config::SCHEMA_URL)));
+
+    let created = super::command_line::prompt("exec {ink} theme", b"\x1b[F\r");
+    assert_eq!(created.status, 0);
+    let config =
+        String::from_utf8(created.config.expect("created config")).expect("config is UTF-8");
+    assert!(config.contains("theme = \"solarized-light\""));
+    assert!(config.contains(config::SCHEMA_URL));
+}
+
+#[test]
+fn theme_008_leave_config_unchanged_on_cancellation() {
+    let original = "# untouched\ntheme = \"dracula\"\n";
+    for key in [b"q".as_slice(), b"\x03".as_slice(), b"\x1b".as_slice()] {
+        let result =
+            super::command_line::prompt_with_config("exec {ink} theme", key, Some(original));
+        assert_eq!(result.status, 130);
+        assert!(result.stdout.is_empty());
+        assert_eq!(result.config.as_deref(), Some(original.as_bytes()));
+        assert!(
+            result
+                .terminal
+                .windows(8)
+                .any(|bytes| bytes == b"\x1b[?1049l")
+        );
+        assert!(result.terminal.ends_with(b"\x1b[?2004l\x1b[?25h"));
+    }
+}
+
+#[test]
+fn theme_009_adapt_the_browser_presentation() {
+    let (result, observations) = super::command_line::prompt_with_resizes(
+        "exec {ink} theme",
+        b"j\x03",
+        Some("theme = \"catppuccin-macchiato\"\n"),
+        &[(20, 5), (80, 12)],
+    );
+    assert_eq!(result.status, 130);
+    assert_eq!(observations.len(), 2);
+    let narrow = String::from_utf8_lossy(&observations[0].terminal);
+    assert!(narrow.contains("Ink themes"), "{narrow:?}");
+    assert!(narrow.contains("enter save"), "{narrow:?}");
+    let wide = String::from_utf8_lossy(&observations[1].terminal);
+    for text in ["café λ 東", "京"] {
+        assert!(wide.contains(text), "{wide:?}");
+    }
+}
+
 fn terminal_has_color(bytes: &[u8], channel: &str, color: Color) -> bool {
     let sequence = format!("{channel};2;{};{};{}", color.red, color.green, color.blue);
     bytes

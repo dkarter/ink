@@ -47,3 +47,40 @@ Ink SHALL identify invalid files and settings without entering terminal raw mode
 - GIVEN configuration contains invalid syntax, an unknown theme, or an unsupported value
 - WHEN Ink starts
 - THEN stderr identifies the file and setting, stdout is empty, and the process exits with status 1
+
+### Requirement: Validate configuration explicitly
+
+Ink SHALL provide `ink config validate` using the same resolved path and parser as normal startup.
+
+#### Scenario: Validate valid or absent configuration {#CFG-006}
+
+- GIVEN a valid config file or no config file at the resolved path
+- WHEN the user runs `ink config validate`
+- THEN stdout reports concise success with the resolved path when available and the process exits with status 0
+
+#### Scenario: Diagnose invalid or unreadable configuration {#CFG-007}
+
+- GIVEN invalid TOML, an unsupported setting, or an unreadable file at the resolved path
+- WHEN the user runs `ink config validate`
+- THEN stderr reports an actionable diagnostic containing that path, stdout is empty, and the process exits with status 1
+
+### Requirement: Publish a complete configuration schema
+
+Ink SHALL publish a JSON Schema for its TOML configuration that documents every supported setting, exact bundled theme name and semantic color role, applicable defaults, and rejects unknown keys.
+
+#### Scenario: Describe the complete config surface {#CFG-008}
+
+- GIVEN the schema served from the website static assets
+- WHEN its root and color properties are inspected
+- THEN they exactly cover Ink's supported keys, types, theme names, semantic color names, descriptions, defaults where applicable, and disallow additional properties
+
+### Requirement: Associate generated config with its schema
+
+Ink SHALL add a Taplo-compatible `#:schema` URL when it creates or updates configuration while preserving existing user content.
+
+#### Scenario: Mutate configuration without data loss {#CFG-009}
+
+- GIVEN valid hand-written TOML with comments, unrelated settings, and optional color overrides
+- WHEN Ink changes the selected theme
+- THEN only the top-level theme value and missing schema directive are added or changed
+- AND the resulting file remains valid Ink configuration

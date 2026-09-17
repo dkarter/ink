@@ -51,3 +51,34 @@ Ink SHALL allow configuration to override the exact kebab-case semantic color ro
 - GIVEN an unknown theme name, color role, or color value
 - WHEN Ink resolves the palette
 - THEN startup fails with a diagnostic naming the invalid value before terminal state changes
+
+### Requirement: Browse bundled themes interactively
+
+Ink SHALL provide `ink theme` as an interactive browser that starts on the configured or default theme and live-previews every bundled palette while the user navigates.
+
+#### Scenario: Navigate live theme previews {#THEME-006}
+
+- GIVEN a configured theme and an interactive terminal
+- WHEN the user runs `ink theme` and navigates with the displayed keyboard controls
+- THEN the browser starts on that theme, identifies the highlighted theme by name, and redraws using each highlighted palette
+
+#### Scenario: Persist an accepted theme {#THEME-007}
+
+- GIVEN an existing, absent, or not-yet-parented configuration file
+- WHEN the user accepts a highlighted theme
+- THEN Ink writes that theme to the resolved XDG-compatible config path
+- AND preserves unrelated settings and comments
+- AND adds a Taplo-compatible schema association
+- AND emits no standard output
+
+#### Scenario: Leave config unchanged on cancellation {#THEME-008}
+
+- GIVEN any configuration state before the theme browser opens
+- WHEN the user cancels with a displayed cancellation control
+- THEN Ink exits with cancellation status, emits no standard output, restores terminal state, and does not modify configuration
+
+#### Scenario: Adapt the browser presentation {#THEME-009}
+
+- GIVEN a narrow or resized terminal and theme preview text containing Unicode
+- WHEN the theme browser renders or redraws
+- THEN the selected theme and usable controls remain visible without panicking or corrupting text

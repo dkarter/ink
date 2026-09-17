@@ -2,7 +2,8 @@
 
 use std::{
     collections::BTreeMap,
-    env, fmt, fs, io,
+    env, fmt, fs,
+    io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -12,6 +13,7 @@ use serde::{Deserialize, Deserializer};
 use crate::theme::{Color, ColorRole};
 
 const CONFIG_RELATIVE_PATH: &str = "ink/config.toml";
+pub const SCHEMA_URL: &str = "https://dkarter.github.io/ink/schema/ink-config.schema.json";
 
 /// Environment-dependent base directories used to discover Ink's config file.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -251,3 +253,135 @@ pub fn parse(path: &Path, source: &str) -> Result<Config, ConfigError> {
         kind: ConfigErrorKind::Parse(error),
     })
 }
+
+/// Persist a selected theme without discarding hand-written TOML content.
+pub fn write_theme(paths: &ConfigPaths, theme: ThemeName) -> Result<PathBuf, ConfigWriteError> {
+    let path = paths.config_file().ok_or(ConfigWriteError {
+        path: None,
+        message: "cannot resolve config path; set XDG_CONFIG_HOME or HOME".to_owned(),
+    })?;
+    let source = match fs::read_to_string(&path) {
+        Ok(source) => source,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(ConfigWriteError::io(path, "read", error)),
+    };
+    parse(&path, &source).map_err(|error| ConfigWriteError {
+        path: None,
+        message: error.to_string(),
+    })?;
+
+    let updated = update_theme_source(&source, theme).map_err(|error| ConfigWriteError {
+        path: Some(path.clone()),
+        message: format!("cannot edit config: {error}"),
+    })?;
+    if updated == source {
+        return Ok(path);
+    }
+    let parent = path.parent().expect("config path has a parent");
+    fs::create_dir_all(parent).map_err(|error| {
+        ConfigWriteError::io(path.clone(), "create parent directory for", error)
+    })?;
+    let destination = match fs::symlink_metadata(&path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => fs::canonicalize(&path)
+            .map_err(|error| ConfigWriteError::io(path.clone(), "resolve symlink for", error))?,
+        Ok(_) => path.clone(),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => path.clone(),
+        Err(error) => return Err(ConfigWriteError::io(path.clone(), "inspect", error)),
+    };
+    atomic_write(&destination, updated.as_bytes())
+        .map_err(|error| ConfigWriteError::io(path.clone(), "write", error))?;
+    Ok(path)
+}
+
+fn update_theme_source(source: &str, theme: ThemeName) -> Result<String, toml_edit::TomlError> {
+    let bytes = source.as_bytes();
+    let uses_crlf = bytes.windows(2).any(|pair| pair == b"\r\n")
+        && !bytes
+            .iter()
+            .enumerate()
+            .any(|(index, byte)| *byte == b'\n' && (index == 0 || bytes[index - 1] != b'\r'));
+    let mut document = source.parse::<toml_edit::DocumentMut>()?;
+    let mut value = toml_edit::Value::from(theme.as_str());
+    if let Some(decor) = document
+        .get("theme")
+        .and_then(toml_edit::Item::as_value)
+        .map(|value| value.decor().clone())
+    {
+        *value.decor_mut() = decor;
+    }
+    document["theme"] = toml_edit::Item::Value(value);
+    let edited = document.to_string();
+    let edited = if uses_crlf {
+        edited.replace('\n', "\r\n")
+    } else {
+        edited
+    };
+    Ok(associate_schema(&edited))
+}
+
+fn associate_schema(source: &str) -> String {
+    let newline = if source.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let schema = format!("#:schema {SCHEMA_URL}");
+    let mut output = String::with_capacity(source.len() + schema.len() + newline.len());
+    let mut replaced = false;
+    for line in source.split_inclusive('\n') {
+        let ending = if line.ends_with("\r\n") {
+            "\r\n"
+        } else if line.ends_with('\n') {
+            "\n"
+        } else {
+            ""
+        };
+        let content = line.strip_suffix(ending).unwrap_or(line);
+        if !replaced && content.trim_start().starts_with("#:schema ") {
+            output.push_str(&schema);
+            output.push_str(ending);
+            replaced = true;
+        } else {
+            output.push_str(line);
+        }
+    }
+    if replaced {
+        output
+    } else {
+        format!("{schema}{newline}{output}")
+    }
+}
+
+fn atomic_write(path: &Path, contents: &[u8]) -> io::Result<()> {
+    let mut file = atomic_write_file::AtomicWriteFile::open(path)?;
+    file.write_all(contents)?;
+    file.commit()
+}
+
+/// A failure while resolving or updating Ink's configuration file.
+#[derive(Debug)]
+pub struct ConfigWriteError {
+    path: Option<PathBuf>,
+    message: String,
+}
+
+impl ConfigWriteError {
+    fn io(path: PathBuf, operation: &str, error: io::Error) -> Self {
+        Self {
+            path: Some(path),
+            message: format!("cannot {operation} config: {error}"),
+        }
+    }
+}
+
+impl fmt::Display for ConfigWriteError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(path) = &self.path {
+            write!(formatter, "{}: {}", path.display(), self.message)
+        } else {
+            formatter.write_str(&self.message)
+        }
+    }
+}
+
+impl std::error::Error for ConfigWriteError {}

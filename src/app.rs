@@ -1,6 +1,6 @@
 //! Interactive prompt event loop.
 
-use std::io::{self, Write};
+use std::io;
 
 use crossterm::event::{Event, KeyEventKind};
 use ratatui::{
@@ -16,7 +16,7 @@ use crate::{
     cli::{PromptKind, PromptRuntimeOptions, ResolvedPromptOptions},
     config::StartupMode,
     editor::{Editor, Mode},
-    terminal::{CursorShape, PromptOutcome, TerminalSession},
+    terminal::{CursorShape, PromptOutcome, SessionWriter, TerminalSession},
     text::{single_line, textarea},
     ui::{CursorRequest, Input, InputState, Textarea, TextareaState},
 };
@@ -193,17 +193,4 @@ fn apply_cursor(session: &TerminalSession, cursor: Option<CursorRequest>) -> io:
         CursorShape::Block
     };
     session.set_cursor_shape(shape)
-}
-
-struct SessionWriter<'a>(&'a TerminalSession);
-
-impl Write for SessionWriter<'_> {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        self.0.write_ui(bytes)?;
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
-    }
 }

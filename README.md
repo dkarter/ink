@@ -18,6 +18,8 @@ printf 'first line\nsecond line' | ink textarea
 ink input --normal --theme catppuccin-mocha
 ink input --prompt "Name: "
 ink textarea --fullscreen
+ink theme
+ink config validate
 ink completion zsh > _ink
 ```
 
@@ -43,12 +45,15 @@ placeholder = "#a9b1d6"
 
 Ink reads `$XDG_CONFIG_HOME/ink/config.toml` when `XDG_CONFIG_HOME` is a non-empty absolute path. Otherwise, it reads `$HOME/.config/ink/config.toml`. Command-line options override matching values in the file.
 
-```toml
+```text
+#:schema https://dkarter.github.io/ink/schema/ink-config.schema.json
 normal = true
 theme = "catppuccin-mocha"
 ```
 
-Theme names are case-insensitive and use hyphens as separators.
+Run `ink theme` to preview every bundled palette and save one to this file. Ink preserves existing settings and comments. Run `ink config validate` to check the resolved file without opening a prompt.
+
+Theme names are case-insensitive and use hyphens as separators. Add the shown `#:schema` directive to an existing hand-written file for Taplo-compatible editor completion and validation.
 Single-line input has no prefix or background by default. Use `--prompt "Name: "` to add a prefix; configure `[colors].background` to fill the input row.
 Input removes LF, CRLF, and lone CR line breaks from seeds and pasted text. Textarea normalizes CRLF and lone CR to LF. See the [theme role reference](website/src/content/docs/themes.md#semantic-overrides) for every supported `[colors]` key.
 

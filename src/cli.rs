@@ -1,6 +1,6 @@
 //! Command-line parsing and top-level dispatch.
 
-use std::{ffi::OsStr, process::ExitCode};
+use std::{ffi::OsStr, io, io::Write, process::ExitCode};
 
 use crate::{
     app,
@@ -30,7 +30,29 @@ enum Command {
     Textarea(TextareaPrompt),
     /// Generate a shell completion script.
     Completion(Completion),
+    /// Browse bundled themes and save a selection.
+    Theme(Theme),
+    /// Inspect Ink configuration.
+    Config(ConfigCommand),
 }
+
+#[derive(Args)]
+struct Theme {}
+
+#[derive(Args)]
+struct ConfigCommand {
+    #[usage(subcommand)]
+    command: ConfigSubcommand,
+}
+
+#[derive(Subcommands)]
+enum ConfigSubcommand {
+    /// Validate the resolved configuration file.
+    Validate(Validate),
+}
+
+#[derive(Args)]
+struct Validate {}
 
 #[derive(Args)]
 struct InputPrompt {
@@ -106,7 +128,7 @@ pub struct PromptRuntimeOptions {
 /// Runtime effects performed after parsing.
 #[doc(hidden)]
 pub trait CliRuntime {
-    fn write_stdout(&mut self, text: &str);
+    fn write_stdout(&mut self, text: &str) -> io::Result<()>;
 
     /// Enter prompt execution.
     fn run_prompt(
@@ -115,6 +137,8 @@ pub trait CliRuntime {
         prompt: PromptRuntimeOptions,
         options: ResolvedPromptOptions,
     ) -> ExitCode;
+
+    fn run_theme(&mut self, initial: ThemeName, paths: &ConfigPaths) -> ExitCode;
 }
 
 /// Validated settings and palette ready for the prompt runtime.
@@ -143,8 +167,8 @@ pub fn resolve_prompt_options(config: &config::Config, cli: &CliOptions) -> Reso
 struct ProcessRuntime;
 
 impl CliRuntime for ProcessRuntime {
-    fn write_stdout(&mut self, text: &str) {
-        print!("{text}");
+    fn write_stdout(&mut self, text: &str) -> io::Result<()> {
+        io::stdout().write_all(text.as_bytes())
     }
 
     fn run_prompt(
@@ -159,6 +183,26 @@ impl CliRuntime for ProcessRuntime {
         })
         .into()
     }
+
+    fn run_theme(&mut self, initial: ThemeName, paths: &ConfigPaths) -> ExitCode {
+        let outcome = terminal::run_utility(&mut ProcessIo, |session| {
+            crate::theme_browser::run(session, initial)
+        });
+        let selected = match outcome {
+            Ok(crate::theme_browser::BrowserOutcome::Selected(selected)) => selected,
+            Ok(crate::theme_browser::BrowserOutcome::Cancelled) => {
+                return ExitStatus::Cancelled.into();
+            }
+            Err(status) => return status.into(),
+        };
+        match config::write_theme(paths, selected) {
+            Ok(_) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("ink: {error}");
+                ExitCode::FAILURE
+            }
+        }
+    }
 }
 
 fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
@@ -166,9 +210,12 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
         Command::Completion(completion) => {
             let shell = usage::complete::Shell::from_name(&completion.shell)
                 .expect("shell choices are validated by usage-rs");
-            runtime.write_stdout(&Ink::completion_script(shell));
-            ExitCode::SUCCESS
+            write_stdout(runtime, &Ink::completion_script(shell))
         }
+        Command::Theme(_) => dispatch_theme(runtime),
+        Command::Config(config) => match config.command {
+            ConfigSubcommand::Validate(_) => dispatch_config_validate(runtime),
+        },
         Command::Input(prompt) => dispatch_prompt(
             prompt.normal,
             prompt.theme,
@@ -194,6 +241,46 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
             runtime,
         ),
     }
+}
+
+fn dispatch_config_validate(runtime: &mut impl CliRuntime) -> ExitCode {
+    let paths = ConfigPaths::from_env();
+    match config::load(&paths) {
+        Ok(_) => {
+            let message = paths.config_file().map_or_else(
+                || "configuration is valid (built-in defaults)\n".to_owned(),
+                |path| format!("configuration is valid: {}\n", path.display()),
+            );
+            write_stdout(runtime, &message)
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn write_stdout(runtime: &mut impl CliRuntime, text: &str) -> ExitCode {
+    match runtime.write_stdout(text) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("ink: cannot write stdout: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn dispatch_theme(runtime: &mut impl CliRuntime) -> ExitCode {
+    let paths = ConfigPaths::from_env();
+    let config = match config::load(&paths) {
+        Ok(config) => config,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let initial = Settings::resolve(&config, &CliOptions::default()).theme;
+    runtime.run_theme(initial, &paths)
 }
 
 fn dispatch_prompt(
