@@ -15,6 +15,12 @@ pub(super) struct PromptResult {
     pub(super) terminal: Vec<u8>,
 }
 
+pub(super) struct ResizeObservation {
+    pub(super) cols: u16,
+    pub(super) rows: u16,
+    pub(super) terminal: Vec<u8>,
+}
+
 pub(super) fn prompt(command: &str, keys: &[u8]) -> PromptResult {
     prompt_with_config(command, keys, None)
 }
@@ -32,7 +38,7 @@ pub(super) fn prompt_with_resizes(
     keys: &[u8],
     config_source: Option<&str>,
     resizes: &[(u16, u16)],
-) -> (PromptResult, usize) {
+) -> (PromptResult, Vec<ResizeObservation>) {
     let temp = TempDir::new().expect("create prompt test directory");
     let stdout = temp.path().join("stdout");
     let config = temp.path().join("config");
@@ -66,7 +72,7 @@ pub(super) fn prompt_with_resizes(
     drop(pair.slave);
 
     let mut reader = pair.master.try_clone_reader().expect("clone PTY reader");
-    let (sender, receiver) = mpsc::channel();
+    let (output_sender, output_receiver) = mpsc::channel();
     let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
     thread::spawn(move || {
         let mut output = Vec::new();
@@ -78,6 +84,9 @@ pub(super) fn prompt_with_resizes(
                 break;
             }
             output.extend_from_slice(&buffer[..count]);
+            output_sender
+                .send(buffer[..count].to_vec())
+                .expect("send PTY output chunk");
             if !ready
                 && (output.windows(6).any(|bytes| bytes == b"INSERT")
                     || output.windows(6).any(|bytes| bytes == b"NORMAL"))
@@ -86,15 +95,17 @@ pub(super) fn prompt_with_resizes(
                 ready_sender.send(()).expect("signal rendered prompt");
             }
         }
-        sender.send(output).expect("send PTY output");
     });
 
     let mut writer = pair.master.take_writer().expect("open PTY writer");
     ready_receiver
         .recv_timeout(Duration::from_secs(2))
         .expect("prompt should render before input");
-    let mut applied_resizes = 0;
+    let mut terminal = Vec::new();
+    collect_output(&output_receiver, &mut terminal, Duration::from_millis(100));
+    let mut observations = Vec::new();
     for &(cols, rows) in resizes {
+        collect_output(&output_receiver, &mut terminal, Duration::from_millis(20));
         if pair
             .master
             .resize(PtySize {
@@ -105,26 +116,46 @@ pub(super) fn prompt_with_resizes(
             })
             .is_ok()
         {
-            applied_resizes += 1;
+            let start = terminal.len();
+            collect_output(&output_receiver, &mut terminal, Duration::from_millis(500));
+            observations.push(ResizeObservation {
+                cols,
+                rows,
+                terminal: terminal[start..].to_vec(),
+            });
         }
-        thread::sleep(Duration::from_millis(50));
     }
     writer.write_all(keys).expect("send prompt keys");
     writer.flush().expect("flush prompt keys");
     let status = super::wait_for_child(child.as_mut(), "prompt");
     drop(writer);
     drop(pair.master);
+    for chunk in output_receiver {
+        terminal.extend_from_slice(&chunk);
+    }
 
     (
         PromptResult {
             status,
             stdout: fs::read(stdout).expect("read clean stdout"),
-            terminal: receiver
-                .recv_timeout(Duration::from_secs(2))
-                .expect("collect PTY output"),
+            terminal,
         },
-        applied_resizes,
+        observations,
     )
+}
+
+fn collect_output(
+    receiver: &mpsc::Receiver<Vec<u8>>,
+    output: &mut Vec<u8>,
+    first_timeout: Duration,
+) {
+    let Ok(chunk) = receiver.recv_timeout(first_timeout) else {
+        return;
+    };
+    output.extend_from_slice(&chunk);
+    while let Ok(chunk) = receiver.recv_timeout(Duration::from_millis(20)) {
+        output.extend_from_slice(&chunk);
+    }
 }
 
 fn shell_word(value: &str) -> String {

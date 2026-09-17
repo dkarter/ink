@@ -15,16 +15,16 @@ ink completion zsh > _ink
 
 Accepted values are written cleanly to stdout. Interactive input and rendering use the controlling terminal so piped initial values remain compatible with shell composition. Input uses a compact three-row interface, and textarea provides five editable rows unless `--fullscreen` is set. Press Enter to accept an input, Ctrl-D to accept either prompt, Ctrl-C to cancel, or `q` to cancel from Normal mode.
 
-### Planned placeholders (not implemented)
+### Placeholders
 
-Both prompt commands will accept `--placeholder <text>`. Input placeholders will be normalized to one line, while textarea placeholders may span multiple lines.
+Both prompt commands accept `--placeholder <text>`. Placeholders appear only while the editable value is empty and never become part of the accepted output. Input placeholders are normalized to one line, while textarea placeholders may span multiple lines.
 
 ```sh
 ink input --placeholder "Release title"
 ink textarea --placeholder $'Summary\n\nDetails'
 ```
 
-Placeholders will use a dedicated `placeholder` theme color. The planned override uses the existing semantic color table:
+Placeholders use a dedicated `placeholder` theme color. Override it through the existing semantic color table:
 
 ```toml
 [colors]

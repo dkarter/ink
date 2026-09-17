@@ -32,6 +32,7 @@ fn ui_001_cursor_shape_follows_mode() {
 
 #[test]
 fn ui_002_mode_indicator_names_every_mode() {
+    let palette = theme::resolve(ThemeName::TokyoNight, &Default::default()).palette;
     for (mode, expected) in [
         (Mode::Insert, "INSERT"),
         (Mode::Normal, "NORMAL"),
@@ -43,8 +44,35 @@ fn ui_002_mode_indicator_names_every_mode() {
         let mut state = TextareaState::default();
         let area = Rect::new(0, 0, 20, 3);
         let mut buffer = Buffer::empty(area);
-        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+        Textarea::new(&editor)
+            .palette(palette)
+            .render(area, &mut buffer, &mut state);
         assert!(buffer_row(&buffer, area.bottom() - 1).starts_with(&format!(" {expected} ")));
+        let mode_background = match mode {
+            Mode::Insert => palette.insert_mode,
+            Mode::Normal => palette.normal_mode,
+            Mode::Visual | Mode::VisualLine | Mode::VisualBlock => palette.visual_mode,
+        };
+        let status_y = area.bottom() - 1;
+        let padded_width = u16::try_from(expected.len() + 2).unwrap();
+        for x in [0, padded_width - 1] {
+            let cell = buffer.cell((x, status_y)).unwrap();
+            assert_eq!(cell.symbol(), " ", "{mode:?} padding at {x}");
+            assert_eq!(cell.fg, palette.background.into(), "{mode:?} fg at {x}");
+            assert_eq!(cell.bg, mode_background.into(), "{mode:?} bg at {x}");
+        }
+        let adjacent = buffer.cell((padded_width, status_y)).unwrap();
+        assert_eq!(adjacent.symbol(), " ", "{mode:?} adjacent symbol");
+        assert_eq!(
+            adjacent.fg,
+            palette.foreground.into(),
+            "{mode:?} adjacent fg"
+        );
+        assert_eq!(
+            adjacent.bg,
+            palette.background.into(),
+            "{mode:?} adjacent bg"
+        );
 
         let area = Rect::new(0, 0, 20, 1);
         let mut buffer = Buffer::empty(area);
@@ -95,8 +123,19 @@ fn ui_002_mode_indicator_names_every_mode() {
     let input = Editor::input("text").unwrap();
     let area = Rect::new(0, 0, 12, 1);
     let mut buffer = Buffer::empty(area);
-    Input::new(&input).render(area, &mut buffer, &mut InputState::default());
-    assert!(buffer_row(&buffer, 0).ends_with("NORMAL"));
+    Input::new(&input)
+        .palette(palette)
+        .render(area, &mut buffer, &mut InputState::default());
+    assert_eq!(buffer_row(&buffer, 0), "text  NORMAL");
+    assert_eq!(
+        buffer.cell((5, 0)).unwrap().bg,
+        ratatui::style::Color::Reset
+    );
+    for x in 6..12 {
+        let cell = buffer.cell((x, 0)).unwrap();
+        assert_eq!(cell.fg, palette.background.into(), "input fg at {x}");
+        assert_eq!(cell.bg, palette.normal_mode.into(), "input bg at {x}");
+    }
 }
 
 #[test]
@@ -233,13 +272,41 @@ fn ui_005_resize_triggers_bounded_redraw() {
         }
     }
 
-    let (result, applied) = super::command_line::prompt_with_resizes(
+    let (result, observations) = super::command_line::prompt_with_resizes(
         "exec {ink} textarea --value 'first\nsecond line\nthird'",
         b"!\x04",
         None,
         &[(18, 4), (1, 1), (0, 0), (60, 10)],
     );
-    assert!(applied >= 3, "nonzero PTY resizes should be supported");
+    for &(cols, rows) in &[(18, 4), (1, 1), (60, 10)] {
+        let observation = observations
+            .iter()
+            .find(|observation| observation.cols == cols && observation.rows == rows)
+            .unwrap_or_else(|| panic!("PTY should support {cols}x{rows} resize"));
+        assert!(
+            !observation.terminal.is_empty(),
+            "{cols}x{rows} resize should trigger a redraw"
+        );
+        assert!(
+            observation.terminal.contains(&0x1b),
+            "{cols}x{rows} redraw should contain terminal control bytes"
+        );
+    }
+    let narrow = observations
+        .iter()
+        .find(|observation| observation.cols == 1 && observation.rows == 1)
+        .expect("narrow resize observation");
+    assert!(!contains(&narrow.terminal, b"INSERT"));
+    if observations
+        .iter()
+        .any(|observation| observation.cols == 0 || observation.rows == 0)
+    {
+        let recovery = observations
+            .iter()
+            .find(|observation| observation.cols == 60 && observation.rows == 10)
+            .expect("zero-size resize should be followed by recovery");
+        assert!(contains(&recovery.terminal, b"INSERT"));
+    }
     assert_eq!(result.status, 0);
     assert_eq!(result.stdout, b"first\nsecond line\nthird!\n");
     assert!(result.terminal.windows(6).any(|bytes| bytes == b"INSERT"));
@@ -312,4 +379,8 @@ fn buffer_row(buffer: &Buffer, y: u16) -> String {
     (buffer.area.x..buffer.area.right())
         .map(|x| buffer.cell((x, y)).unwrap().symbol())
         .collect()
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.windows(needle.len()).any(|bytes| bytes == needle)
 }
