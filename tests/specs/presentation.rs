@@ -124,11 +124,11 @@ fn ui_004_textarea_scrolls_around_cursor() {
     assert_eq!(buffer.cell((1, 0)).unwrap().symbol(), "x");
 
     for (text, column, expected_text, expected_x) in [
-        ("\ta", 0, "a", 0),
+        ("\ta", 0, "", 0),
         ("\ta", 1, "a", 0),
         ("\u{301}a", 0, "a", 0),
         ("\u{301}a", 1, "a", 0),
-        ("a\tb", 2, "ab", 1),
+        ("a\tb", 2, "   b", 3),
         ("a\u{7}b", 2, "ab", 1),
     ] {
         let mut editor = Editor::textarea(text);
@@ -209,6 +209,18 @@ fn ui_005_resize_triggers_bounded_redraw() {
             assert!(area.is_empty());
         }
     }
+
+    let (result, applied) = super::command_line::prompt_with_resizes(
+        "exec {ink} textarea --value 'first\nsecond line\nthird'",
+        b"!\x04",
+        None,
+        &[(18, 4), (1, 1), (0, 0), (60, 10)],
+    );
+    assert!(applied >= 3, "nonzero PTY resizes should be supported");
+    assert_eq!(result.status, 0);
+    assert_eq!(result.stdout, b"first\nsecond line\nthird!\n");
+    assert!(result.terminal.windows(6).any(|bytes| bytes == b"INSERT"));
+    assert!(result.terminal.ends_with(b"\x1b[0 q\x1b[?2004l\x1b[?25h"));
 }
 
 #[test]

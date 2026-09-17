@@ -42,6 +42,7 @@ theme = "catppuccin-mocha"
 
 Theme names are case-insensitive and use hyphens as separators.
 Single-line input has no prefix or background by default. Use `--prompt "Name: "` to add a prefix; configure `[colors].background` to fill the input row.
+Input removes LF, CRLF, and lone CR line breaks from seeds and pasted text. Textarea normalizes CRLF and lone CR to LF. See the [theme role reference](website/src/content/docs/themes.md#semantic-overrides) for every supported `[colors]` key.
 
 ## Development
 

@@ -3,12 +3,18 @@ use std::borrow::Cow;
 use ratatui::buffer::CellWidth;
 use unicode_segmentation::UnicodeSegmentation;
 
+const TAB_STOP: usize = 4;
+
 pub(crate) fn text_width(text: &str) -> usize {
-    text.graphemes(true).map(grapheme_width).sum()
+    text.graphemes(true).fold(0, |column, grapheme| {
+        column + grapheme_width_at(grapheme, column)
+    })
 }
 
-/// Mirrors `Buffer::set_stringn`: controls and zero-cell graphemes are omitted.
-pub(crate) fn grapheme_width(grapheme: &str) -> usize {
+pub(crate) fn grapheme_width_at(grapheme: &str, column: usize) -> usize {
+    if grapheme == "\t" {
+        return TAB_STOP - column % TAB_STOP;
+    }
     if grapheme.contains(char::is_control) {
         0
     } else {
@@ -17,13 +23,18 @@ pub(crate) fn grapheme_width(grapheme: &str) -> usize {
 }
 
 pub(crate) fn cursor_width(text: &str, column: usize) -> usize {
-    text.graphemes(true)
-        .nth(column)
-        .map_or(1, grapheme_width)
-        .max(1)
+    let mut cell = 0;
+    for (index, grapheme) in text.graphemes(true).enumerate() {
+        let width = grapheme_width_at(grapheme, cell);
+        if index == column {
+            return width.max(1);
+        }
+        cell += width;
+    }
+    1
 }
 
-pub(crate) fn sanitized_prefix(text: &str, max_width: usize) -> Cow<'_, str> {
+pub(crate) fn sanitized_prefix(text: &str, start_cell: usize, max_width: usize) -> Cow<'_, str> {
     let mut visible_width = 0;
     let mut visible_end = 0;
     let mut sanitized = None::<String>;
@@ -32,7 +43,15 @@ pub(crate) fn sanitized_prefix(text: &str, max_width: usize) -> Cow<'_, str> {
         if visible_width == max_width {
             break;
         }
-        let width = grapheme_width(grapheme);
+        let width = grapheme_width_at(grapheme, start_cell + visible_width);
+        if grapheme == "\t" {
+            sanitized
+                .get_or_insert_with(|| text[..byte].to_owned())
+                .extend(std::iter::repeat_n(' ', width));
+            visible_width += width;
+            visible_end = byte + grapheme.len();
+            continue;
+        }
         if width == 0 {
             sanitized.get_or_insert_with(|| text[..byte].to_owned());
             continue;
@@ -56,7 +75,7 @@ pub(crate) fn slice_from_cell(text: &str, offset: usize) -> (&str, usize) {
         if position >= offset {
             return (&text[byte..], position - offset);
         }
-        position += grapheme_width(grapheme);
+        position += grapheme_width_at(grapheme, position);
     }
     ("", 0)
 }
@@ -67,7 +86,7 @@ pub(crate) fn boundary_at_or_after(text: &str, target: usize) -> usize {
         if boundary >= target {
             break;
         }
-        boundary += grapheme_width(grapheme);
+        boundary += grapheme_width_at(grapheme, boundary);
     }
     boundary
 }

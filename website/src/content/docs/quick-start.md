@@ -12,7 +12,7 @@ title=$(ink input --value "Draft release title")
 printf '%s\n' "$title"
 ```
 
-Ink will start in Insert mode by default. The accepted text will be printed to standard output with one trailing newline. Pasted line breaks will be removed from single-line input.
+Ink will start in Insert mode by default. The accepted text will be printed to standard output with one trailing newline. LF, CRLF, and lone CR line breaks are removed from single-line seeds and pasted text.
 
 The input has no prefix by default. Add one with `--prompt "Name: "`.
 
@@ -26,6 +26,8 @@ gh release create v1.0.0 --notes "$notes"
 ```
 
 Textarea shows five editable rows in the command workflow by default. Use `ink textarea --fullscreen` for the complete terminal area.
+
+Textarea normalizes CRLF and lone CR line endings in seeds and pasted text to LF.
 
 ## Seed from a pipe
 

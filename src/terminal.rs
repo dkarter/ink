@@ -2,6 +2,7 @@
 
 use std::{
     io,
+    ops::Range,
     panic::{self, AssertUnwindSafe},
     process::ExitCode,
     sync::{Arc, Mutex, MutexGuard},
@@ -14,14 +15,15 @@ pub use process::ProcessIo;
 #[doc(hidden)]
 pub use process::{ConsoleMode, HandleRawMode};
 
-const SAVE_POSITION: &[u8] = b"\x1b7";
-const RESTORE_POSITION: &[u8] = b"\x1b8";
-const CLEAR_OWNED_REGION: &[u8] = b"\x1b[J";
+const SAVE_POSITION: &str = "\x1b7";
+const RESTORE_POSITION: &str = "\x1b8";
 const HIDE_CURSOR: &[u8] = b"\x1b[?25l";
 const SHOW_CURSOR: &[u8] = b"\x1b[?25h";
 const DEFAULT_CURSOR: &[u8] = b"\x1b[0 q";
 const ENABLE_BRACKETED_PASTE: &[u8] = b"\x1b[?2004h";
 const DISABLE_BRACKETED_PASTE: &[u8] = b"\x1b[?2004l";
+const ENTER_ALTERNATE_SCREEN: &[u8] = b"\x1b[?1049h";
+const LEAVE_ALTERNATE_SCREEN: &[u8] = b"\x1b[?1049l";
 const NO_TTY_DIAGNOSTIC: &str = "ink: no controlling terminal available\n";
 static SESSION_LOCK: Mutex<()> = Mutex::new(());
 
@@ -126,51 +128,6 @@ impl TerminalSession {
         crossterm::event::read()
     }
 
-    /// Query the controlling terminal cursor without writing to process stdout.
-    pub fn cursor_position(&self) -> io::Result<(u16, u16)> {
-        #[cfg(windows)]
-        {
-            return crossterm::cursor::position();
-        }
-        #[cfg(unix)]
-        {
-            self.cursor_position_unix()
-        }
-    }
-
-    #[cfg(unix)]
-    fn cursor_position_unix(&self) -> io::Result<(u16, u16)> {
-        self.write_ui(b"\x1b[6n")?;
-        self.flush()?;
-        let mut response = Vec::with_capacity(16);
-        loop {
-            let mut byte = [0];
-            if self.read_input(&mut byte)? == 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "terminal closed during cursor query",
-                ));
-            }
-            response.push(byte[0]);
-            if byte[0] == b'R' {
-                let coordinates = std::str::from_utf8(&response)
-                    .ok()
-                    .and_then(|value| value.strip_prefix("\x1b["))
-                    .and_then(|value| value.strip_suffix('R'))
-                    .and_then(|value| value.split_once(';'))
-                    .and_then(|(row, column)| Some((column.parse().ok()?, row.parse().ok()?)));
-                return coordinates
-                    .map(|(column, row): (u16, u16)| {
-                        (column.saturating_sub(1), row.saturating_sub(1))
-                    })
-                    .ok_or_else(|| io::Error::other("invalid terminal cursor response"));
-            }
-            if response.len() == response.capacity() {
-                return Err(io::Error::other("terminal cursor response is too long"));
-            }
-        }
-    }
-
     /// Write UI bytes to the controlling terminal, never to stdout.
     pub fn write_ui(&self, bytes: &[u8]) -> io::Result<()> {
         self.restoration.device.write_all(bytes)
@@ -194,6 +151,47 @@ impl TerminalSession {
         self.restoration.device.write_all(bytes)
     }
 
+    pub fn enter_inline_screen(&self, top: u16, height: u16) -> io::Result<()> {
+        {
+            let mut state = self
+                .restoration
+                .state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            state.screen = ScreenState::Inline(Vec::new());
+            track_rows(&mut state.screen, top, height);
+        }
+        let reserved_lines = height.saturating_sub(1);
+        let mut reserve = String::from("\x1b[999B");
+        reserve.push_str("\r\n".repeat(usize::from(reserved_lines)).as_str());
+        if reserved_lines > 0 {
+            use std::fmt::Write as _;
+            write!(reserve, "\x1b[{reserved_lines}A").expect("writing to a string cannot fail");
+        }
+        reserve.push_str(SAVE_POSITION);
+        self.write_ui(reserve.as_bytes())?;
+        self.flush()
+    }
+
+    pub fn track_inline_screen(&self, top: u16, height: u16) {
+        let mut state = self
+            .restoration
+            .state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        track_rows(&mut state.screen, top, height);
+    }
+
+    pub fn enter_fullscreen(&self) -> io::Result<()> {
+        self.restoration
+            .state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .screen = ScreenState::Alternate;
+        self.write_ui(ENTER_ALTERNATE_SCREEN)?;
+        self.flush()
+    }
+
     fn restore(&self) -> io::Result<()> {
         self.restoration.restore()
     }
@@ -213,11 +211,19 @@ struct Restoration {
 #[derive(Default)]
 struct RestorationState {
     raw_mode: bool,
-    screen_region: bool,
+    screen: ScreenState,
     cursor_hidden: bool,
     cursor_shape: bool,
     bracketed_paste: bool,
     flush_pending: bool,
+}
+
+#[derive(Clone, Default)]
+enum ScreenState {
+    #[default]
+    None,
+    Inline(Vec<Range<u16>>),
+    Alternate,
 }
 
 impl Restoration {
@@ -237,12 +243,6 @@ impl Restoration {
 
         {
             let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
-            state.screen_region = true;
-        }
-        self.device.write_all(SAVE_POSITION)?;
-
-        {
-            let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
             state.cursor_hidden = true;
         }
         self.device.write_all(HIDE_CURSOR)?;
@@ -255,10 +255,10 @@ impl Restoration {
     }
 
     fn restore(&self) -> io::Result<()> {
-        let (raw_mode, screen_region, cursor_hidden, cursor_shape, bracketed_paste, flush_pending) = {
+        let (raw_mode, screen, cursor_hidden, cursor_shape, bracketed_paste, flush_pending) = {
             let state = self.state.lock().unwrap_or_else(|error| error.into_inner());
             if !state.raw_mode
-                && !state.screen_region
+                && matches!(&state.screen, ScreenState::None)
                 && !state.cursor_hidden
                 && !state.cursor_shape
                 && !state.bracketed_paste
@@ -268,7 +268,7 @@ impl Restoration {
             }
             (
                 state.raw_mode,
-                state.screen_region,
+                state.screen.clone(),
                 state.cursor_hidden,
                 state.cursor_shape,
                 state.bracketed_paste,
@@ -277,23 +277,45 @@ impl Restoration {
         };
 
         let mut first_error = None;
-        if screen_region || cursor_hidden || cursor_shape || bracketed_paste {
+        let had_screen = !matches!(&screen, ScreenState::None);
+        if had_screen || cursor_hidden || cursor_shape || bracketed_paste {
             self.state
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())
                 .flush_pending = true;
         }
-        if screen_region {
-            let restored = self.device.write_all(RESTORE_POSITION);
-            let cleared = self.device.write_all(CLEAR_OWNED_REGION);
-            if restored.is_ok() && cleared.is_ok() {
-                self.state
-                    .lock()
-                    .unwrap_or_else(|error| error.into_inner())
-                    .screen_region = false;
+        match screen {
+            ScreenState::None => {}
+            ScreenState::Inline(rows) => {
+                let row_count = rows.iter().map(|range| range.len()).sum::<usize>();
+                let mut cleanup = String::with_capacity(row_count * 12 + RESTORE_POSITION.len());
+                for range in rows {
+                    for row in range {
+                        use std::fmt::Write as _;
+                        write!(cleanup, "\x1b[{};1H\x1b[2K", row + 1)
+                            .expect("writing to a string cannot fail");
+                    }
+                }
+                cleanup.push_str("\x1b8");
+                let result = self.device.write_all(cleanup.as_bytes());
+                if result.is_ok() {
+                    self.state
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner())
+                        .screen = ScreenState::None;
+                }
+                attempt(&mut first_error, result);
             }
-            attempt(&mut first_error, restored);
-            attempt(&mut first_error, cleared);
+            ScreenState::Alternate => {
+                let result = self.device.write_all(LEAVE_ALTERNATE_SCREEN);
+                if result.is_ok() {
+                    self.state
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner())
+                        .screen = ScreenState::None;
+                }
+                attempt(&mut first_error, result);
+            }
         }
         if cursor_shape {
             let result = self.device.write_all(DEFAULT_CURSOR);
@@ -325,7 +347,7 @@ impl Restoration {
             }
             attempt(&mut first_error, result);
         }
-        if flush_pending || screen_region || cursor_hidden || cursor_shape || bracketed_paste {
+        if flush_pending || had_screen || cursor_hidden || cursor_shape || bracketed_paste {
             let result = self.device.flush();
             if result.is_ok() {
                 self.state
@@ -347,6 +369,29 @@ impl Restoration {
         }
         first_error.map_or(Ok(()), Err)
     }
+}
+
+fn track_rows(screen: &mut ScreenState, top: u16, height: u16) {
+    let ScreenState::Inline(ranges) = screen else {
+        return;
+    };
+    let mut tracked = top..top.saturating_add(height);
+    if tracked.is_empty() {
+        return;
+    }
+    let mut index = 0;
+    while index < ranges.len() {
+        let range = &ranges[index];
+        if range.end < tracked.start || range.start > tracked.end {
+            index += 1;
+            continue;
+        }
+        tracked.start = tracked.start.min(range.start);
+        tracked.end = tracked.end.max(range.end);
+        ranges.remove(index);
+    }
+    ranges.push(tracked);
+    ranges.sort_unstable_by_key(|range| range.start);
 }
 
 fn attempt(first_error: &mut Option<io::Error>, result: io::Result<()>) {

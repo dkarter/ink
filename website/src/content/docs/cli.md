@@ -23,6 +23,8 @@ The same options apply to `input` and `textarea`.
 
 `input` also accepts `--prompt <TEXT>` and shows no prefix by default. `textarea` uses five editable rows plus a status row by default and accepts `--fullscreen` to use the complete terminal.
 
+Input removes LF, CRLF, and lone CR line breaks from explicit values, piped seeds, and bracketed paste. Textarea uses LF for its logical line model, normalizing CRLF and lone CR from those sources to LF.
+
 ## Completion targets
 
 The CLI accepts `bash`, `zsh`, `fish`, and `nu`:
@@ -35,7 +37,7 @@ Completion scripts are generated from the same static CLI definition used for pa
 
 ## Output contract
 
-Accepted values will be emitted to standard output with exactly one final newline. Interface rendering and terminal control sequences will use the controlling terminal instead.
+Accepted values will be emitted to standard output followed by one output-record newline. Interface rendering and terminal control sequences will use the controlling terminal instead. Textarea logical line endings are emitted as LF.
 
 | Outcome         | Exit status | Standard output            |
 | --------------- | ----------: | -------------------------- |

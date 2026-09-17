@@ -9,15 +9,12 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
+    display::{cursor_width, sanitized_prefix, slice_from_cell, text_width},
     editor::{Editor, Mode},
     theme::Palette,
 };
 
-use super::{
-    CursorRequest, Viewport,
-    display::{cursor_width, sanitized_prefix, slice_from_cell, text_width},
-    mode_label,
-};
+use super::{CursorRequest, Viewport, mode_label};
 
 /// Rendering state retained by a single-line input.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -312,7 +309,7 @@ impl StatefulWidget for Textarea<'_> {
         }
 
         if area.height > 1 {
-            let hint_width = super::display::text_width(self.hint);
+            let hint_width = crate::display::text_width(self.hint);
             if available > mode_width + hint_width {
                 render_text(
                     self.hint,
@@ -378,7 +375,7 @@ fn render_text(
     if leading >= width {
         return;
     }
-    let text = sanitized_prefix(text, width - leading);
+    let text = sanitized_prefix(text, offset + leading, width - leading);
     buf.set_stringn(
         x.saturating_add(u16::try_from(leading).unwrap_or(u16::MAX)),
         y,
@@ -394,7 +391,7 @@ fn render_text(
     };
     let mut cell = 0;
     for (byte, grapheme) in original_text.grapheme_indices(true) {
-        let grapheme_width = super::display::grapheme_width(grapheme);
+        let grapheme_width = crate::display::grapheme_width_at(grapheme, cell);
         let selected = decoration
             .selection
             .iter()

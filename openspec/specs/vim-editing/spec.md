@@ -74,13 +74,13 @@ Ink SHALL move, select, delete, change, and yank by extended grapheme cluster ra
 
 ### Requirement: Keep Normal cursors valid
 
-Ink SHALL keep a Normal-mode cursor on an existing grapheme when the buffer is non-empty and at zero when empty.
+Ink SHALL keep a Normal-mode cursor on an existing grapheme or at column zero on an empty logical textarea line.
 
 #### Scenario: Deleting at boundaries keeps a valid cursor {#EDIT-010}
 
-- GIVEN the cursor is at the beginning or end of a buffer
-- WHEN deletion removes adjacent or final text
-- THEN the cursor is clamped to the nearest remaining grapheme or zero for an empty buffer
+- GIVEN the cursor is at the beginning or end of a buffer or on an empty textarea line
+- WHEN deletion removes adjacent or final text or movement targets the empty line
+- THEN the cursor is clamped to the nearest remaining grapheme or column zero on that logical line
 
 ### Requirement: Move by words
 
@@ -95,28 +95,32 @@ Ink SHALL support Vim word motions in Normal and Visual modes, treating `w`, `b`
 
 ### Requirement: Compose operators with motions
 
-Ink SHALL compose delete, change, and yank operators with word motions and `iw`/`aw` text objects in Normal mode.
+Ink SHALL compose delete, change, and yank operators with word and WORD motions and `iw`, `aw`, `iW`, and `aW` text objects in Normal mode.
 
 #### Scenario: Delete or change a motion range {#EDIT-012}
 
-- GIVEN a prompt in Normal mode on text containing words and whitespace
-- WHEN the user invokes `d` or `c` followed by a word motion, `iw`, or `aw`
+- GIVEN a prompt in Normal mode on text containing words, horizontal whitespace, line breaks, and Unicode graphemes
+- WHEN the user invokes `d` or `c` followed by a forward, backward, or end word or WORD motion or text object
 - THEN exactly the computed motion or text-object range is deleted
+- AND `cw` and `cW` at a word end change only that current word or WORD
+- AND horizontal-whitespace text objects do not consume a line break or adjacent-line indentation
 - AND delete returns to Normal mode while change enters Insert mode at the start of the deleted range
 
 #### Scenario: Yank and paste operator ranges {#EDIT-013}
 
-- GIVEN a prompt in Normal mode
-- WHEN the user yanks with a motion, text object, or `yy` and invokes `p` or `P`
+- GIVEN a prompt in Normal mode containing characterwise and multiline ranges
+- WHEN the user yanks with a forward, backward, or end word or WORD motion, any word text object, or `yy` and invokes `p` or `P`
 - THEN the unnamed register is pasted after or before the cursor for characterwise text
 - AND linewise text is pasted below or above the current textarea line
 
 #### Scenario: Apply linewise operators {#EDIT-014}
 
-- GIVEN a textarea in Normal mode
-- WHEN the user invokes `dd`, `cc`, or `yy`
-- THEN the operation applies to the complete current logical line
+- GIVEN a textarea in Normal mode on a first, middle, final, or empty logical line
+- WHEN the user invokes `dd`, `cc`, or `yy`, directly or through the public editor API
+- THEN the operation applies only to the complete current logical line
+- AND deleting the final line consumes its preceding separator without leaving a trailing empty line
 - AND `cc` enters Insert mode while delete and yank remain in Normal mode
+- AND linewise APIs reject input buffers and non-Normal modes
 
 ### Requirement: Open textarea lines
 
@@ -128,3 +132,14 @@ Ink SHALL support Vim line opening in textarea Normal mode.
 - WHEN the user invokes `o` or `O`
 - THEN Ink inserts an empty line below or above the current line respectively
 - AND enters Insert mode at the start of that line
+
+### Requirement: Use terminal display cells consistently
+
+Ink SHALL use one display-cell policy for editor movement, Visual Block ranges, viewport scrolling, rendering, and cursor placement.
+
+#### Scenario: Align editing geometry with rendered cells {#EDIT-016}
+
+- GIVEN text containing tabs, controls, combining marks, and wide graphemes
+- WHEN Ink moves vertically, scrolls, or selects a Visual Block
+- THEN editor and UI geometry assign the same cells to every grapheme
+- AND no grapheme is split or addressed at a cell where it is not rendered

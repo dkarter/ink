@@ -2,7 +2,9 @@ use std::ops::Range;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Editor, Mode, Position, display_width};
+use crate::display::grapheme_width_at;
+
+use super::{Editor, Mode, Position};
 
 impl Editor {
     #[must_use]
@@ -113,7 +115,13 @@ impl Editor {
         let mut selected_start = None;
         let mut selected_end = None;
         for (relative, grapheme) in self.text[line_start..line_end].grapheme_indices(true) {
-            let width = display_width(grapheme);
+            let width = grapheme_width_at(grapheme, display);
+            if width == 0 {
+                if selected_start.is_some() {
+                    selected_end = Some(line_start + relative + grapheme.len());
+                }
+                continue;
+            }
             let end_column = display + width - 1;
             if display <= right && end_column >= left {
                 selected_start.get_or_insert(line_start + relative);

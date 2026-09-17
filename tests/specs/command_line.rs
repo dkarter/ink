@@ -24,6 +24,15 @@ pub(super) fn prompt_with_config(
     keys: &[u8],
     config_source: Option<&str>,
 ) -> PromptResult {
+    prompt_with_resizes(command, keys, config_source, &[]).0
+}
+
+pub(super) fn prompt_with_resizes(
+    command: &str,
+    keys: &[u8],
+    config_source: Option<&str>,
+    resizes: &[(u16, u16)],
+) -> (PromptResult, usize) {
     let temp = TempDir::new().expect("create prompt test directory");
     let stdout = temp.path().join("stdout");
     let config = temp.path().join("config");
@@ -81,27 +90,41 @@ pub(super) fn prompt_with_config(
     });
 
     let mut writer = pair.master.take_writer().expect("open PTY writer");
-    // Ratatui's inline viewport asks the terminal for its current cursor row.
-    writer
-        .write_all(b"\x1b[1;1R")
-        .expect("answer cursor-position query");
-    writer.flush().expect("flush cursor-position answer");
     ready_receiver
         .recv_timeout(Duration::from_secs(2))
         .expect("prompt should render before input");
+    let mut applied_resizes = 0;
+    for &(cols, rows) in resizes {
+        if pair
+            .master
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .is_ok()
+        {
+            applied_resizes += 1;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
     writer.write_all(keys).expect("send prompt keys");
     writer.flush().expect("flush prompt keys");
-    let status = child.wait().expect("wait for prompt").exit_code();
+    let status = super::wait_for_child(child.as_mut(), "prompt");
     drop(writer);
     drop(pair.master);
 
-    PromptResult {
-        status,
-        stdout: fs::read(stdout).expect("read clean stdout"),
-        terminal: receiver
-            .recv_timeout(Duration::from_secs(2))
-            .expect("collect PTY output"),
-    }
+    (
+        PromptResult {
+            status,
+            stdout: fs::read(stdout).expect("read clean stdout"),
+            terminal: receiver
+                .recv_timeout(Duration::from_secs(2))
+                .expect("collect PTY output"),
+        },
+        applied_resizes,
+    )
 }
 
 fn shell_word(value: &str) -> String {
@@ -128,11 +151,20 @@ fn cli_001_accept_single_line_input() {
 fn cli_002_reject_line_breaks_in_input() {
     let result = prompt(
         "exec {ink} input",
-        b"\x1b[200~first\nsecond\r\nthird\x1b[201~\r",
+        b"\x1b[200~first\nsecond\r\nthird\rfourth\x1b[201~\r",
     );
 
     assert_eq!(result.status, 0);
-    assert_eq!(result.stdout, b"firstsecondthird\n");
+    assert_eq!(result.stdout, b"firstsecondthirdfourth\n");
+
+    let explicit = prompt(
+        "exec {ink} input --value \"$(printf 'a\\r\\nb\\rc\\nd')\"",
+        b"\r",
+    );
+    assert_eq!(explicit.stdout, b"abcd\n");
+
+    let piped = prompt("printf 'a\\r\\nb\\rc\\nd' | {ink} input", b"\r");
+    assert_eq!(piped.stdout, b"abcd\n");
 }
 
 #[test]
@@ -141,6 +173,18 @@ fn cli_003_accept_multiline_text() {
 
     assert_eq!(result.status, 0);
     assert_eq!(result.stdout, b"first\nsecond\n");
+
+    let pasted = prompt("exec {ink} textarea", b"\x1b[200~a\r\nb\rc\nd\x1b[201~\x04");
+    assert_eq!(pasted.stdout, b"a\nb\nc\nd\n");
+
+    let explicit = prompt(
+        "exec {ink} textarea --value \"$(printf 'a\\r\\nb\\rc\\nd')\"",
+        b"\x04",
+    );
+    assert_eq!(explicit.stdout, b"a\nb\nc\nd\n");
+
+    let piped = prompt("printf 'a\\r\\nb\\rc\\nd' | {ink} textarea", b"\x04");
+    assert_eq!(piped.stdout, b"a\nb\nc\nd\n");
 }
 
 #[test]
@@ -222,32 +266,80 @@ fn cli_009_configure_the_input_prompt() {
 
 #[test]
 fn cli_010_keep_textarea_compact_by_default() {
-    let result = prompt("exec {ink} textarea", b"\x03");
+    let result = prompt(
+        "printf 'history-marker' > /dev/tty; exec {ink} textarea --normal --value 'one\ntwo\nthree\nfour\nfive\nsix'",
+        b"\x03",
+    );
 
     assert_eq!(result.status, 130);
-    assert!(result.terminal.windows(4).any(|bytes| bytes == b"\x1b[6;"));
-    assert!(!result.terminal.windows(4).any(|bytes| bytes == b"\x1b[7;"));
+    assert!(!contains(&result.terminal, b"\x1b[6n"));
+    assert!(!contains(&result.terminal, b"\x1b[?1049h"));
+    let history = super::sequence_position(&result.terminal, b"history-marker");
+    let reserved = super::sequence_position(
+        &result.terminal,
+        b"\x1b[999B\r\n\r\n\r\n\r\n\r\n\x1b[5A\x1b7",
+    );
+    assert!(
+        history < reserved,
+        "compact rows must be reserved before drawing"
+    );
+    for visible in ["one", "two", "three", "four", "five", "NORMAL"] {
+        assert!(contains(&result.terminal, visible.as_bytes()), "{visible}");
+    }
+    assert!(!contains(&result.terminal, b"six"));
+    assert_rows_cleared(&result.terminal, 3..=8);
 }
 
 #[test]
 fn cli_011_expand_textarea_to_full_screen() {
-    let result = prompt("exec {ink} textarea --fullscreen", b"\x03");
+    let result = prompt(
+        "exec {ink} textarea --fullscreen --normal --value 'one\ntwo\nthree\nfour\nfive\nsix\nseven\neight'",
+        b"\x03",
+    );
 
     assert_eq!(result.status, 130);
-    assert!(result.terminal.windows(4).any(|bytes| bytes == b"\x1b[8;"));
+    let entered = super::sequence_position(&result.terminal, b"\x1b[?1049h");
+    let left = super::sequence_position(&result.terminal, b"\x1b[?1049l");
+    assert!(entered < left);
+    for visible in [
+        "one", "two", "three", "four", "five", "six", "seven", "NORMAL",
+    ] {
+        assert!(contains(&result.terminal, visible.as_bytes()), "{visible}");
+    }
+    assert!(!contains(&result.terminal, b"eight"));
+    assert!(!contains(&result.terminal[left..], b"\x1b[2K"));
 }
 
 #[test]
 fn cli_012_remove_prompt_ui_after_completion() {
-    for (command, keys) in [
-        ("exec {ink} input --value accepted", b"\r".as_slice()),
-        ("exec {ink} textarea", b"\x03".as_slice()),
+    for (command, keys, rows) in [
+        ("exec {ink} input --value accepted", b"\r".as_slice(), 6..=8),
+        ("exec {ink} textarea", b"\x03".as_slice(), 3..=8),
     ] {
         let result = prompt(command, keys);
+        assert_rows_cleared(&result.terminal, rows);
+        assert!(result.terminal.ends_with(b"\x1b[0 q\x1b[?2004l\x1b[?25h"));
+    }
+
+    for keys in [b"\x04".as_slice(), b"\x03".as_slice()] {
+        let result = prompt("exec {ink} textarea --fullscreen", keys);
+        let entered = super::sequence_position(&result.terminal, b"\x1b[?1049h");
+        let left = super::sequence_position(&result.terminal, b"\x1b[?1049l");
+        assert!(entered < left);
+        assert!(result.terminal.ends_with(b"\x1b[0 q\x1b[?2004l\x1b[?25h"));
+    }
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.windows(needle.len()).any(|bytes| bytes == needle)
+}
+
+fn assert_rows_cleared(terminal: &[u8], rows: impl IntoIterator<Item = u16>) {
+    for row in rows {
+        let sequence = format!("\x1b[{row};1H\x1b[2K");
         assert!(
-            result
-                .terminal
-                .ends_with(b"\x1b8\x1b[J\x1b[0 q\x1b[?2004l\x1b[?25h")
+            contains(terminal, sequence.as_bytes()),
+            "row {row} was not cleared"
         );
     }
 }

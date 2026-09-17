@@ -32,9 +32,34 @@ ink textarea --theme catppuccin-mocha
 
 User configuration overrides individual semantic color roles after loading a bundled base palette. Roles not overridden retain the selected theme’s values.
 
+| Role                   | Purpose                   |
+| ---------------------- | ------------------------- |
+| `foreground`           | Primary text              |
+| `background`           | Filled widget backgrounds |
+| `muted`                | Hints and secondary text  |
+| `accent`               | Reserved accent color     |
+| `border`               | Reserved border color     |
+| `selection`            | Selected-cell background  |
+| `selection-foreground` | Selected-cell text        |
+| `cursor`               | Reserved cursor color     |
+| `insert-mode`          | Insert mode indicator     |
+| `normal-mode`          | Normal mode indicator     |
+| `visual-mode`          | Visual mode indicators    |
+| `error`                | Reserved error color      |
+| `warning`              | Reserved warning color    |
+
+Use the exact kebab-case role name with a `#RRGGBB` value:
+
+```toml
+[colors]
+selection = "#33467c"
+selection-foreground = "#c0caf5"
+normal-mode = "#7aa2f7"
+```
+
 Single-line input leaves the terminal background untouched by default. Set the `background` role explicitly when a filled input row is preferred.
 
-Unknown theme names, color roles, or color values fail startup before terminal state changes. Colors use `#RRGGBB` syntax; configuration supports the semantic roles listed in the project README.
+Unknown theme names, color roles, or color values fail startup before terminal state changes. The future `placeholder` role belongs to RMS-109 and is not currently accepted.
 
 ## Accessibility
 

@@ -54,16 +54,16 @@ Ink SHALL fail before entering raw mode when no controlling terminal is availabl
 
 ### Requirement: Restore terminal state
 
-Ink SHALL restore cursor visibility, cursor shape, raw mode, and the screen region it owns on acceptance, cancellation, runtime errors, and caught panics.
+Ink SHALL restore cursor visibility, cursor shape, raw mode, and the screen region it owns on acceptance, cancellation, runtime errors, and panics. Fullscreen prompts SHALL use an alternate screen so restoration preserves the complete command workflow screen.
 
 #### Scenario: Restore after every ordinary outcome {#IO-006}
 
 - GIVEN Ink has changed terminal state
-- WHEN it accepts, cancels, or returns an error
-- THEN every changed terminal setting is restored before the process exits
+- WHEN a compact or fullscreen prompt accepts, cancels, or returns an error
+- THEN every changed terminal setting and owned screen region is restored before the process exits
 
 #### Scenario: Restore after panic {#IO-007}
 
-- GIVEN Ink has changed terminal state and a panic occurs
+- GIVEN a compact or fullscreen prompt has changed terminal state and a panic occurs
 - WHEN the panic hook runs
-- THEN terminal restoration is attempted before the original panic is reported
+- THEN terminal restoration, including leaving the alternate screen, is attempted before the original panic is reported

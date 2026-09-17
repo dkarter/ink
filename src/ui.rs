@@ -1,7 +1,6 @@
 //! Composable terminal presentation for input and textarea editors.
 
 mod cursor;
-mod display;
 mod viewport;
 mod widgets;
 

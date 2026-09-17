@@ -18,6 +18,21 @@ const REQUIRED_THEME_NAMES: [&str; 10] = [
     "solarized-dark",
     "solarized-light",
 ];
+const COLOR_ROLE_NAMES: [&str; 13] = [
+    "foreground",
+    "background",
+    "muted",
+    "accent",
+    "border",
+    "selection",
+    "selection-foreground",
+    "cursor",
+    "insert-mode",
+    "normal-mode",
+    "visual-mode",
+    "error",
+    "warning",
+];
 
 fn contrast_ratio(foreground: Color, background: Color) -> f64 {
     fn luminance(color: Color) -> f64 {
@@ -150,6 +165,7 @@ fn theme_003_command_line_theme_wins() {
 }
 #[test]
 fn theme_004_user_colors_overlay_a_base_theme() {
+    assert_eq!(ColorRole::ALL.map(ColorRole::as_str), COLOR_ROLE_NAMES);
     let base = theme::resolve(ThemeName::GruvboxDark, &Default::default());
     let config = config::parse(
         Path::new("config.toml"),
@@ -176,6 +192,24 @@ fn theme_004_user_colors_overlay_a_base_theme() {
                 "{role}"
             );
         }
+    }
+
+    let all_roles = COLOR_ROLE_NAMES.iter().enumerate().fold(
+        String::from("[colors]\n"),
+        |mut source, (index, role)| {
+            use std::fmt::Write as _;
+            writeln!(source, "{role} = \"#{:06x}\"", index + 1).expect("write role fixture");
+            source
+        },
+    );
+    let config = config::parse(Path::new("config.toml"), &all_roles).expect("parse every role");
+    let resolved = theme::resolve(ThemeName::TokyoNight, &config.colors);
+    for (index, role) in ColorRole::ALL.into_iter().enumerate() {
+        assert_eq!(
+            resolved.palette.color(role),
+            Color::rgb(0, 0, u8::try_from(index + 1).unwrap()),
+            "{role}"
+        );
     }
 
     let result = super::command_line::prompt_with_config(

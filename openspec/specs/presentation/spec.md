@@ -52,9 +52,10 @@ Ink SHALL recompute layout and viewport bounds from the latest terminal dimensio
 
 #### Scenario: Resize triggers bounded redraw {#UI-005}
 
-- GIVEN either prompt is running
-- WHEN the terminal reports a larger or smaller size
-- THEN the next frame uses the new area, clamps all dimensions, and does not panic at zero-sized intermediate areas
+- GIVEN a real prompt is running in a terminal
+- WHEN the terminal reports larger, narrow, and zero-sized dimensions where supported
+- THEN the next frame uses the new area and clamps all dimensions without panicking
+- AND editing, acceptance, and cleanup continue after the terminal returns to a usable size
 
 ### Requirement: Preserve the command background
 

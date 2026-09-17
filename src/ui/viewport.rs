@@ -1,6 +1,6 @@
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::display::{boundary_at_or_after, grapheme_width};
+use crate::display::{boundary_at_or_after, grapheme_width_at};
 
 /// A textarea viewport measured in logical lines and terminal display cells.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -75,7 +75,7 @@ fn line_metrics(line: &str, column: usize) -> (usize, usize, usize) {
     let mut cursor_width = 1;
     let mut total_width = 0;
     for (index, grapheme) in line.graphemes(true).enumerate() {
-        let width = grapheme_width(grapheme);
+        let width = grapheme_width_at(grapheme, total_width);
         if index < column {
             cursor_start += width;
         } else if index == column {

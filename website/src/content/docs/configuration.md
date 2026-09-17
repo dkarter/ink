@@ -28,11 +28,18 @@ The configuration file accepts these settings:
 
 - `normal`: whether the prompt starts in Normal mode (`false` by default)
 - `theme`: a case-insensitive bundled theme name, using hyphens as separators (`tokyo-night` by default)
+- `colors`: semantic `#RRGGBB` overrides applied after the selected theme
 
 ```toml
 normal = true
 theme = "catppuccin-mocha"
+
+[colors]
+selection = "#33467c"
+normal-mode = "#7aa2f7"
 ```
+
+See [Themes](../themes/#semantic-overrides) for every supported color role.
 
 ## Invalid settings
 

@@ -1,4 +1,6 @@
 use ink::editor::{Editor, InputError, Mode, Motion, Position, TextObject};
+use ink::ui::{Textarea, TextareaState};
+use ratatui::{buffer::Buffer, layout::Rect, widgets::StatefulWidget};
 
 #[test]
 fn edit_001_enter_and_leave_insert_mode() {
@@ -28,7 +30,13 @@ fn edit_001_enter_and_leave_insert_mode() {
     textarea.move_right();
     assert!(textarea.insert("\n"));
     textarea.escape();
-    assert_eq!(textarea.cursor(), Position::new(0, 0));
+    assert_eq!(textarea.cursor(), Position::new(1, 0));
+
+    let mut normalized = Editor::textarea("a\r\nb\rc\nd");
+    assert_eq!(normalized.text(), "a\nb\nc\nd");
+    normalized.enter_insert();
+    assert!(normalized.insert("x\r\ny\rz"));
+    assert!(!normalized.text().contains('\r'));
 
     assert_eq!(Editor::input("first\nsecond"), Err(InputError::LineBreak));
     assert_eq!(Editor::empty_input().text(), "");
@@ -109,7 +117,7 @@ fn edit_007_yank_selected_text() {
 
     assert!(editor.yank_selection());
     assert_eq!(editor.text(), original);
-    assert_eq!(editor.unnamed_register(), "second\nthird");
+    assert_eq!(editor.unnamed_register(), "second\nthird\n");
     assert_eq!(editor.mode(), Mode::Normal);
     assert_eq!(editor.cursor(), Position::new(1, 0));
 }
@@ -166,32 +174,32 @@ fn edit_010_deleting_at_boundaries_keeps_a_valid_cursor() {
     editor.set_cursor(Position::new(1, 0));
     editor.enter_visual_line();
     assert!(editor.delete_selection());
-    assert_eq!(editor.text(), "one\n");
+    assert_eq!(editor.text(), "one");
     assert_eq!(editor.cursor(), Position::new(0, 2));
 
     let mut trailing = Editor::textarea("a\n");
     trailing.move_down();
-    assert_eq!(trailing.cursor(), Position::new(0, 0));
+    assert_eq!(trailing.cursor(), Position::new(1, 0));
     trailing.set_cursor(Position::new(1, 0));
-    assert_eq!(trailing.cursor(), Position::new(0, 0));
+    assert_eq!(trailing.cursor(), Position::new(1, 0));
 
     let mut intermediate = Editor::textarea("a\n\nb");
     intermediate.move_down();
-    assert_eq!(intermediate.cursor(), Position::new(2, 0));
+    assert_eq!(intermediate.cursor(), Position::new(1, 0));
     intermediate.set_cursor(Position::new(1, 0));
-    assert_eq!(intermediate.cursor(), Position::new(0, 0));
+    assert_eq!(intermediate.cursor(), Position::new(1, 0));
 
     trailing.enter_insert();
     trailing.move_down();
     assert_eq!(trailing.cursor(), Position::new(1, 0));
 
     let mut visual = Editor::textarea("\na");
-    assert_eq!(visual.cursor(), Position::new(1, 0));
-    visual.enter_visual_line();
-    visual.move_up();
     assert_eq!(visual.cursor(), Position::new(0, 0));
-    assert!(visual.yank_selection());
+    visual.enter_visual_line();
+    visual.move_down();
     assert_eq!(visual.cursor(), Position::new(1, 0));
+    assert!(visual.yank_selection());
+    assert_eq!(visual.cursor(), Position::new(0, 0));
 }
 
 #[test]
@@ -284,6 +292,21 @@ fn edit_012_delete_or_change_a_motion_range() {
     assert!(change_word.change_motion(Motion::WordForward));
     assert_eq!(change_word.text(), " two");
 
+    let mut change_middle = Editor::input("one two").unwrap();
+    change_middle.set_cursor(Position::new(0, 1));
+    assert!(change_middle.change_motion(Motion::WordForward));
+    assert_eq!(change_middle.text(), "o two");
+
+    let mut change_end = Editor::input("one two").unwrap();
+    change_end.set_cursor(Position::new(0, 2));
+    assert!(change_end.change_motion(Motion::WordForward));
+    assert_eq!(change_end.text(), "on two");
+
+    let mut change_big_end = Editor::input("one-two three").unwrap();
+    change_big_end.set_cursor(Position::new(0, 6));
+    assert!(change_big_end.change_motion(Motion::BigWordForward));
+    assert_eq!(change_big_end.text(), "one-tw three");
+
     let mut change_whitespace = Editor::input("one   two").unwrap();
     change_whitespace.move_word_end();
     change_whitespace.move_right();
@@ -295,6 +318,47 @@ fn edit_012_delete_or_change_a_motion_range() {
     whitespace.move_right();
     assert!(whitespace.delete_text_object(TextObject::InnerWord));
     assert_eq!(whitespace.text(), "onetwo");
+
+    let mut multiline_space = Editor::textarea("one  \n  two");
+    multiline_space.set_cursor(Position::new(0, 3));
+    assert!(multiline_space.delete_text_object(TextObject::InnerWord));
+    assert_eq!(multiline_space.text(), "one\n  two");
+
+    let mut empty_line_object = Editor::textarea("one\n\ntwo");
+    empty_line_object.move_down();
+    assert!(!empty_line_object.delete_text_object(TextObject::InnerWord));
+    assert_eq!(empty_line_object.text(), "one\n\ntwo");
+
+    let mut inner_big = Editor::input("one-two three").unwrap();
+    assert!(inner_big.delete_text_object(TextObject::InnerBigWord));
+    assert_eq!(inner_big.text(), " three");
+
+    let mut around_big = Editor::input("one-two  three").unwrap();
+    assert!(around_big.delete_text_object(TextObject::ABigWord));
+    assert_eq!(around_big.text(), "three");
+
+    let mut backward = Editor::input("one two").unwrap();
+    backward.move_to_line_end();
+    assert!(backward.delete_motion(Motion::WordBackward));
+    assert_eq!(backward.text(), "one o");
+
+    let mut end = Editor::input("one two").unwrap();
+    assert!(end.delete_motion(Motion::WordEnd));
+    assert_eq!(end.text(), " two");
+
+    let mut big_end = Editor::input("one-two three").unwrap();
+    assert!(big_end.delete_motion(Motion::BigWordEnd));
+    assert_eq!(big_end.text(), " three");
+
+    let mut change_backward = Editor::input("one-two three").unwrap();
+    change_backward.move_to_line_end();
+    assert!(change_backward.change_motion(Motion::BigWordBackward));
+    assert_eq!(change_backward.text(), "one-two e");
+    assert_eq!(change_backward.mode(), Mode::Insert);
+
+    let mut change_inner_big = Editor::input("one-two three").unwrap();
+    assert!(change_inner_big.change_text_object(TextObject::InnerBigWord));
+    assert_eq!(change_inner_big.text(), " three");
 
     let mut decomposed = Editor::input("e\u{301}lan test").unwrap();
     assert!(decomposed.delete_text_object(TextObject::InnerWord));
@@ -338,7 +402,31 @@ fn edit_013_yank_and_paste_operator_ranges() {
     assert!(blank_line.yank_selection());
     blank_line.move_down();
     assert!(blank_line.paste_after());
-    assert_eq!(blank_line.text(), "one\n\ntwo\none\n");
+    assert_eq!(blank_line.text(), "one\n\none\n\ntwo");
+
+    let mut backward = Editor::input("one two").unwrap();
+    backward.move_to_line_end();
+    assert!(backward.yank_motion(Motion::WordBackward));
+    assert_eq!(backward.unnamed_register(), "tw");
+
+    let mut word_end = Editor::input("one two").unwrap();
+    assert!(word_end.yank_motion(Motion::WordEnd));
+    assert_eq!(word_end.unnamed_register(), "one");
+
+    let mut big_word_end = Editor::input("one-two three").unwrap();
+    assert!(big_word_end.yank_motion(Motion::BigWordEnd));
+    assert_eq!(big_word_end.unnamed_register(), "one-two");
+
+    let mut inner_big = Editor::input("one-two three").unwrap();
+    assert!(inner_big.yank_text_object(TextObject::InnerBigWord));
+    assert_eq!(inner_big.unnamed_register(), "one-two");
+
+    let mut big_object = Editor::input("one-two three").unwrap();
+    assert!(big_object.yank_text_object(TextObject::ABigWord));
+    assert_eq!(big_object.unnamed_register(), "one-two ");
+    big_object.move_big_word_forward();
+    assert!(big_object.paste_before());
+    assert_eq!(big_object.text(), "one-two one-two three");
 
     let result = super::command_line::prompt(
         "exec {ink} textarea --normal --value 'one\ntwo'",
@@ -367,26 +455,66 @@ fn edit_013_yank_and_paste_operator_ranges() {
 
 #[test]
 fn edit_014_apply_linewise_operators() {
-    let mut deleted = Editor::textarea("one\ntwo");
-    assert!(deleted.delete_line());
-    assert_eq!(deleted.text(), "two");
-    assert_eq!(deleted.mode(), Mode::Normal);
+    for (line, expected) in [(0, "two\nthree"), (1, "one\nthree"), (2, "one\ntwo")] {
+        let mut deleted = Editor::textarea("one\ntwo\nthree");
+        deleted.set_cursor(Position::new(line, 0));
+        assert!(deleted.delete_line());
+        assert_eq!(deleted.text(), expected);
+        assert_eq!(deleted.mode(), Mode::Normal);
+    }
 
-    let mut changed = Editor::textarea("one\ntwo");
-    assert!(changed.change_line());
-    assert_eq!(changed.text(), "\ntwo");
-    assert_eq!(changed.mode(), Mode::Insert);
+    for (line, expected, register) in [
+        (0, "\ntwo\nthree", "one\n"),
+        (1, "one\n\nthree", "two\n"),
+        (2, "one\ntwo\n", "three\n"),
+    ] {
+        let mut changed = Editor::textarea("one\ntwo\nthree");
+        changed.set_cursor(Position::new(line, 0));
+        assert!(changed.change_line());
+        assert_eq!(changed.text(), expected);
+        assert_eq!(changed.unnamed_register(), register);
+        assert_eq!(changed.mode(), Mode::Insert);
+    }
+
+    for (line, register) in [(0, "one\n"), (1, "two\n"), (2, "three\n")] {
+        let mut yanked = Editor::textarea("one\ntwo\nthree");
+        yanked.set_cursor(Position::new(line, 0));
+        assert!(yanked.yank_line());
+        assert_eq!(yanked.text(), "one\ntwo\nthree");
+        assert_eq!(yanked.unnamed_register(), register);
+    }
+
+    let mut empty_line = Editor::textarea("one\n\ntwo");
+    empty_line.move_down();
+    assert_eq!(empty_line.cursor(), Position::new(1, 0));
+    assert!(empty_line.yank_line());
+    assert_eq!(empty_line.unnamed_register(), "\n");
+    assert!(empty_line.delete_line());
+    assert_eq!(empty_line.text(), "one\ntwo");
 
     let mut empty = Editor::textarea("");
     assert!(empty.change_line());
     assert_eq!(empty.text(), "");
     assert_eq!(empty.mode(), Mode::Insert);
 
-    let mut yanked = Editor::textarea("one\ntwo");
-    assert!(yanked.yank_line());
-    assert_eq!(yanked.text(), "one\ntwo");
-    assert_eq!(yanked.unnamed_register(), "one\n");
-    assert_eq!(yanked.mode(), Mode::Normal);
+    let mut input = Editor::input("one").unwrap();
+    assert!(!input.delete_line());
+    assert!(!input.change_line());
+    assert!(!input.yank_line());
+    input.enter_insert();
+    assert!(!input.delete_line());
+
+    let mut wrong_mode = Editor::textarea("one");
+    wrong_mode.enter_insert();
+    assert!(!wrong_mode.delete_line());
+    assert!(!wrong_mode.change_line());
+    assert!(!wrong_mode.yank_line());
+
+    let mut visual_mode = Editor::textarea("one");
+    visual_mode.enter_visual_line();
+    assert!(!visual_mode.delete_line());
+    assert!(!visual_mode.change_line());
+    assert!(!visual_mode.yank_line());
 
     for (keys, expected) in [
         (b"dd\x04".as_slice(), b"two\n".as_slice()),
@@ -397,6 +525,31 @@ fn edit_014_apply_linewise_operators() {
         assert_eq!(result.status, 0);
         assert_eq!(result.stdout, expected);
     }
+}
+
+#[test]
+fn edit_016_align_editing_geometry_with_rendered_cells() {
+    let mut tabs = Editor::textarea("\tX\n....X");
+    tabs.move_right();
+    tabs.move_down();
+    assert_eq!(tabs.cursor(), Position::new(1, 4));
+
+    let mut block = Editor::textarea("\tX\n....X");
+    block.enter_visual_block();
+    block.move_down();
+    assert_eq!(block.selection_ranges(), vec![0..1, 3..4]);
+
+    let mut controls = Editor::textarea("\u{1}X\nX");
+    controls.move_right();
+    controls.move_down();
+    assert_eq!(controls.cursor(), Position::new(1, 0));
+
+    let mut state = TextareaState::default();
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 8, 3));
+    Textarea::new(&tabs).render(buffer.area, &mut buffer, &mut state);
+    assert_eq!(state.cursor().unwrap().position.x, 4);
+    assert_eq!(buffer[(0, 0)].symbol(), " ");
+    assert_eq!(buffer[(3, 0)].symbol(), " ");
 }
 
 #[test]

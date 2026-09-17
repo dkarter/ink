@@ -19,8 +19,8 @@ Ink SHALL provide `ink input` for editing and accepting exactly one logical line
 #### Scenario: Reject line breaks in input {#CLI-002}
 
 - GIVEN `ink input` is active
-- WHEN the user pastes or types a line break
-- THEN Ink keeps a single logical line by removing line-break characters
+- WHEN an explicit value, piped seed, or bracketed paste contains LF, CRLF, or lone CR line breaks
+- THEN Ink keeps a single logical line by removing every line-break character
 
 ### Requirement: Prompt for multiple lines
 
@@ -29,8 +29,9 @@ Ink SHALL provide `ink textarea` for editing and accepting text containing line 
 #### Scenario: Accept multiline text {#CLI-003}
 
 - GIVEN an interactive terminal and `ink textarea`
-- WHEN the user inserts line breaks and accepts the buffer
-- THEN Ink emits the complete multiline buffer unchanged
+- WHEN an explicit value, piped seed, keyboard edit, or bracketed paste supplies multiline text
+- THEN Ink normalizes CRLF and lone CR line endings to LF in the logical buffer
+- AND emits all other content unchanged
 
 ### Requirement: Choose the startup mode
 
@@ -86,15 +87,18 @@ Ink SHALL render input and textarea as compact inline prompts by default, while 
 - GIVEN `ink textarea` without a layout option
 - WHEN the prompt renders
 - THEN Ink reserves five editable rows and one status row within the command workflow
+- AND startup does not wait for a terminal cursor-position report
 
 #### Scenario: Expand textarea to full screen {#CLI-011}
 
 - GIVEN `ink textarea --fullscreen`
 - WHEN the prompt renders
 - THEN Ink uses the complete available terminal area
+- AND isolates that area from the command workflow using the alternate screen
 
 #### Scenario: Remove prompt UI after completion {#CLI-012}
 
-- GIVEN either prompt is visible
-- WHEN it accepts or cancels
-- THEN the complete prompt UI is cleared before control returns to the command workflow
+- GIVEN a compact or fullscreen prompt is visible
+- WHEN it accepts, cancels, errors, or panics
+- THEN every owned compact row is cleared or the fullscreen alternate screen is left
+- AND the command workflow screen and cursor are restored before control returns

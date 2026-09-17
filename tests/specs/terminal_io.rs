@@ -1,10 +1,11 @@
 use std::{
-    io,
+    io::{self, Read},
     panic::{self, AssertUnwindSafe},
     sync::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
     },
+    thread,
 };
 
 use ink::terminal::{
@@ -15,9 +16,11 @@ use ink::{
     cli::{CliRuntime, PromptKind, PromptRuntimeOptions, ResolvedPromptOptions},
     terminal,
 };
+use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 
-const ENTER_BYTES: &[u8] = b"\x1b7\x1b[?25l\x1b[?2004h";
-const RESTORE_BYTES: &[u8] = b"\x1b8\x1b[J\x1b[0 q\x1b[?2004l\x1b[?25h";
+const ENTER_BYTES: &[u8] = b"\x1b[?25l\x1b[?2004h";
+const RESTORE_BYTES: &[u8] = b"\x1b[1;1H\x1b[2K\x1b8\x1b[0 q\x1b[?2004l\x1b[?25h";
+const FULLSCREEN_RESTORE_BYTES: &[u8] = b"\x1b[?1049l\x1b[0 q\x1b[?2004l\x1b[?25h";
 
 #[derive(Default)]
 struct DeviceState {
@@ -248,6 +251,17 @@ fn io_005_fail_clearly_without_a_tty() {
 
 #[test]
 fn io_006_restore_after_every_ordinary_outcome() {
+    if std::env::var_os("INK_FULLSCREEN_ERROR_CHILD").is_some() {
+        let mut io = ink::terminal::ProcessIo;
+        let status = run_prompt(&mut io, None, |session, _| {
+            session.enter_fullscreen()?;
+            session.set_cursor_shape(CursorShape::Bar)?;
+            Err(io::Error::other("fullscreen PTY error"))
+        });
+        assert_eq!(status, ExitStatus::RuntimeFailure);
+        return;
+    }
+
     for outcome in [
         Ok(PromptOutcome::Accepted("value".into())),
         Ok(PromptOutcome::Cancelled(CancelReason::Interrupt)),
@@ -256,6 +270,7 @@ fn io_006_restore_after_every_ordinary_outcome() {
         let device = Arc::new(FakeDevice::default());
         let mut io = FakeIo::interactive(Arc::clone(&device));
         let status = run_prompt(&mut io, None, |session, _| {
+            session.enter_inline_screen(0, 1)?;
             session.set_cursor_shape(CursorShape::Bar)?;
             outcome
         });
@@ -319,15 +334,69 @@ fn io_006_restore_after_every_ordinary_outcome() {
 
     assert_eq!(*mode.lock().unwrap(), 0x01f7);
     assert_eq!(*changes.lock().unwrap(), [0x01f0, 0x01f7]);
+
+    let device = Arc::new(FakeDevice::default());
+    let mut io = FakeIo::interactive(Arc::clone(&device));
+    let status = run_prompt(&mut io, None, |session, _| {
+        session.enter_fullscreen()?;
+        session.set_cursor_shape(CursorShape::Bar)?;
+        Ok(PromptOutcome::Accepted("value".into()))
+    });
+    assert_eq!(status, ExitStatus::Accepted);
+    assert!(
+        device
+            .bytes()
+            .windows(8)
+            .any(|bytes| bytes == b"\x1b[?1049h")
+    );
+    assert!(device.bytes().ends_with(FULLSCREEN_RESTORE_BYTES));
+
+    for keys in [b"\x04".as_slice(), b"\x03".as_slice()] {
+        let result = super::command_line::prompt("exec {ink} textarea --fullscreen", keys);
+        let entered = super::sequence_position(&result.terminal, b"\x1b[?1049h");
+        let left = super::sequence_position(&result.terminal, b"\x1b[?1049l");
+        assert!(entered < left);
+    }
+
+    let terminal = pty_fixture_output(
+        "specs::terminal_io::io_006_restore_after_every_ordinary_outcome",
+        "INK_FULLSCREEN_ERROR_CHILD",
+    );
+    let entered = super::sequence_position(&terminal, b"\x1b[?1049h");
+    let left = super::sequence_position(&terminal, b"\x1b[?1049l");
+    let reported = super::sequence_position(&terminal, b"fullscreen PTY error");
+    assert!(entered < left);
+    assert!(left < reported);
 }
 
 #[test]
 fn io_007_restore_after_panic() {
+    if std::env::var_os("INK_FULLSCREEN_PANIC_CHILD").is_some() {
+        let mut io = ink::terminal::ProcessIo;
+        run_prompt(&mut io, None, |session, _| -> io::Result<PromptOutcome> {
+            session.enter_fullscreen()?;
+            session.set_cursor_shape(CursorShape::UnderScore)?;
+            panic!("fullscreen PTY panic")
+        });
+        unreachable!("panic fixture must not return");
+    }
+    if std::env::var_os("INK_COMPACT_PANIC_CHILD").is_some() {
+        let mut io = ink::terminal::ProcessIo;
+        run_prompt(&mut io, None, |session, _| -> io::Result<PromptOutcome> {
+            let (_, height) = crossterm::terminal::size()?;
+            session.enter_inline_screen(height.saturating_sub(1), 1)?;
+            session.set_cursor_shape(CursorShape::UnderScore)?;
+            panic!("compact PTY panic")
+        });
+        unreachable!("panic fixture must not return");
+    }
+
     let device = Arc::new(FakeDevice::default());
     let mut io = FakeIo::interactive(Arc::clone(&device));
 
     let panic = panic::catch_unwind(AssertUnwindSafe(|| {
         run_prompt(&mut io, None, |session, _| {
+            session.enter_inline_screen(0, 1)?;
             session.set_cursor_shape(CursorShape::UnderScore)?;
             panic!("prompt panic")
         });
@@ -337,9 +406,32 @@ fn io_007_restore_after_panic() {
     assert!(device.bytes().ends_with(RESTORE_BYTES));
     assert_eq!(device.calls().last(), Some(&"disable_raw"));
 
+    let fullscreen = Arc::new(FakeDevice::default());
+    let mut io = FakeIo::interactive(Arc::clone(&fullscreen));
+    let panic = panic::catch_unwind(AssertUnwindSafe(|| {
+        run_prompt(&mut io, None, |session, _| -> io::Result<PromptOutcome> {
+            session.enter_fullscreen()?;
+            session.set_cursor_shape(CursorShape::UnderScore)?;
+            panic!("fullscreen prompt panic")
+        });
+    }));
+    assert!(panic.is_err());
+    let bytes = fullscreen.bytes();
+    let entered = bytes
+        .windows(8)
+        .position(|bytes| bytes == b"\x1b[?1049h")
+        .expect("enter alternate screen");
+    let left = bytes
+        .windows(8)
+        .position(|bytes| bytes == b"\x1b[?1049l")
+        .expect("leave alternate screen");
+    assert!(left > entered);
+    assert!(bytes.ends_with(FULLSCREEN_RESTORE_BYTES));
+
     let device = Arc::new(FakeDevice::default());
     let mut io = FakeIo::interactive(Arc::clone(&device));
     let status = run_prompt(&mut io, None, |session, _| {
+        session.enter_inline_screen(0, 1)?;
         session.set_cursor_shape(CursorShape::Bar)?;
         assert!(
             std::thread::spawn(|| panic!("worker panic"))
@@ -399,4 +491,61 @@ fn io_007_restore_after_panic() {
     assert_eq!(status, ExitStatus::Cancelled);
     assert!(reported.is_err());
     assert_eq!(later_hook_calls.load(Ordering::SeqCst), 1);
+
+    let terminal = pty_fixture_output(
+        "specs::terminal_io::io_007_restore_after_panic",
+        "INK_FULLSCREEN_PANIC_CHILD",
+    );
+    let entered = super::sequence_position(&terminal, b"\x1b[?1049h");
+    let left = super::sequence_position(&terminal, b"\x1b[?1049l");
+    let reported = super::sequence_position(&terminal, b"fullscreen PTY panic");
+    assert!(entered < left);
+    assert!(
+        left < reported,
+        "alternate screen must close before panic output"
+    );
+
+    let compact = pty_fixture_output(
+        "specs::terminal_io::io_007_restore_after_panic",
+        "INK_COMPACT_PANIC_CHILD",
+    );
+    let cleared = super::sequence_position(&compact, b"\x1b[8;1H\x1b[2K");
+    let reported = super::sequence_position(&compact, b"compact PTY panic");
+    assert!(
+        cleared < reported,
+        "compact rows must clear before panic output"
+    );
+}
+
+fn pty_fixture_output(test_name: &str, environment: &str) -> Vec<u8> {
+    let pair = native_pty_system()
+        .openpty(PtySize {
+            rows: 8,
+            cols: 50,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .expect("open panic PTY");
+    let mut command = CommandBuilder::new(std::env::current_exe().expect("current test binary"));
+    command.arg("--exact");
+    command.arg(test_name);
+    command.arg("--nocapture");
+    command.env(environment, "1");
+    let mut child = pair
+        .slave
+        .spawn_command(command)
+        .expect("spawn panic fixture");
+    drop(pair.slave);
+    let mut reader = pair
+        .master
+        .try_clone_reader()
+        .expect("clone panic PTY reader");
+    let output = thread::spawn(move || {
+        let mut output = Vec::new();
+        reader.read_to_end(&mut output).expect("read panic PTY");
+        output
+    });
+    super::wait_for_child(child.as_mut(), "terminal fixture");
+    drop(pair.master);
+    output.join().expect("join panic PTY reader")
 }
