@@ -360,10 +360,10 @@ checksum = "sha256:158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e
 url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-win-x64.zip"
 
 [[tools."npm:@fission-ai/openspec"]]
-version = "1.13.0"
-aube = { path = ".mise/locks/npm-fission-ai-openspec/1.13.0", digest = "sha256:82ad717b38c767debcf3438c16e2af28e94d0d79820a92af2e1ad88437d02add" }
+version = "1.13.1"
+aube = { path = ".mise/locks/npm-fission-ai-openspec/1.13.1", digest = "sha256:e06ef9112d7f78cc0356dd1d42a1db8b3de822c25a3808ba66a9cec077745acf" }
 backend = "npm:@fission-ai/openspec"
-specifiers = ["1.13.0"]
+specifiers = ["1.13.1"]
 
 [[tools.pitchfork]]
 version = "2.25.0"
