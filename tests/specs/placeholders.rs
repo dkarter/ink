@@ -54,7 +54,7 @@ fn ph_001_set_a_placeholder_for_either_prompt() {
         assert_eq!(runtime.prompts[0].1.value, None);
     }
 
-    for shell in ["bash", "elvish", "fish", "zsh"] {
+    for shell in ["bash", "zsh", "fish", "nu"] {
         for command in ["input", "textarea"] {
             let completion = Command::new(env!("CARGO_BIN_EXE_ink"))
                 .args([

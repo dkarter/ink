@@ -74,11 +74,37 @@ fn ui_002_mode_indicator_names_every_mode() {
             "{mode:?} adjacent bg"
         );
 
-        let area = Rect::new(0, 0, 20, 1);
-        let mut buffer = Buffer::empty(area);
-        Textarea::new(&editor).render(area, &mut buffer, &mut state);
+        let buffer_area = Rect::new(0, 0, 22, 1);
+        let area = Rect::new(1, 0, 20, 1);
+        let mut buffer = Buffer::empty(buffer_area);
+        Textarea::new(&editor)
+            .palette(palette)
+            .render(area, &mut buffer, &mut state);
         assert!(buffer_row(&buffer, 0).contains(&format!(" {expected} ")));
         assert!(area.contains(state.cursor().unwrap().position));
+        let mode_x = area.right() - padded_width;
+        for x in [mode_x, area.right() - 1] {
+            let cell = buffer.cell((x, 0)).unwrap();
+            assert_eq!(cell.symbol(), " ", "inline {mode:?} padding at {x}");
+            assert_eq!(
+                cell.fg,
+                palette.background.into(),
+                "inline {mode:?} fg at {x}"
+            );
+            assert_eq!(cell.bg, mode_background.into(), "inline {mode:?} bg at {x}");
+        }
+        let left_adjacent = buffer.cell((mode_x - 1, 0)).unwrap();
+        assert_eq!(left_adjacent.symbol(), " ", "inline {mode:?} left neighbor");
+        assert_eq!(left_adjacent.fg, palette.foreground.into());
+        assert_eq!(left_adjacent.bg, palette.background.into());
+        let right_adjacent = buffer.cell((area.right(), 0)).unwrap();
+        assert_eq!(
+            right_adjacent.symbol(),
+            " ",
+            "inline {mode:?} right neighbor"
+        );
+        assert_eq!(right_adjacent.fg, ratatui::style::Color::Reset);
+        assert_eq!(right_adjacent.bg, ratatui::style::Color::Reset);
 
         let area = Rect::new(0, 0, u16::try_from(expected.len() + 2).unwrap(), 1);
         let mut buffer = Buffer::empty(area);
@@ -120,21 +146,39 @@ fn ui_002_mode_indicator_names_every_mode() {
     Textarea::new(&editor).render(area, &mut buffer, &mut state);
     assert_eq!(state.cursor(), None);
 
-    let input = Editor::input("text").unwrap();
-    let area = Rect::new(0, 0, 12, 1);
-    let mut buffer = Buffer::empty(area);
-    Input::new(&input)
-        .palette(palette)
-        .render(area, &mut buffer, &mut InputState::default());
-    assert_eq!(buffer_row(&buffer, 0), "text  NORMAL");
-    assert_eq!(
-        buffer.cell((5, 0)).unwrap().bg,
-        ratatui::style::Color::Reset
-    );
-    for x in 6..12 {
-        let cell = buffer.cell((x, 0)).unwrap();
-        assert_eq!(cell.fg, palette.background.into(), "input fg at {x}");
-        assert_eq!(cell.bg, palette.normal_mode.into(), "input bg at {x}");
+    for (mode, expected, mode_background) in [
+        (Mode::Insert, "INSERT", palette.insert_mode),
+        (Mode::Normal, "NORMAL", palette.normal_mode),
+        (Mode::Visual, "VISUAL", palette.visual_mode),
+    ] {
+        let mut input = Editor::input("text").unwrap();
+        match mode {
+            Mode::Insert => input.enter_insert(),
+            Mode::Normal => {}
+            Mode::Visual => input.enter_visual(),
+            Mode::VisualLine | Mode::VisualBlock => unreachable!("input does not support {mode:?}"),
+        }
+        assert_eq!(input.mode(), mode);
+        let area = Rect::new(0, 0, 12, 1);
+        let mut buffer = Buffer::empty(area);
+        Input::new(&input)
+            .palette(palette)
+            .render(area, &mut buffer, &mut InputState::default());
+        assert_eq!(buffer_row(&buffer, 0), format!("text  {expected}"));
+        assert_eq!(
+            buffer.cell((5, 0)).unwrap().bg,
+            ratatui::style::Color::Reset,
+            "input {mode:?} adjacent bg"
+        );
+        for x in 6..area.width {
+            let cell = buffer.cell((x, 0)).unwrap();
+            assert_eq!(
+                cell.fg,
+                palette.background.into(),
+                "input {mode:?} fg at {x}"
+            );
+            assert_eq!(cell.bg, mode_background.into(), "input {mode:?} bg at {x}");
+        }
     }
 }
 
