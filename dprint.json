@@ -14,6 +14,7 @@
   "yaml": {
   },
   "excludes": [
+    ".release-please-manifest.json",
     "**/.playwright-mcp",
     "**/.mise",
     "**/node_modules",
