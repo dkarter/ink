@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/dkarter/ink/compare/v0.1.0...v0.1.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **release:** exclude generated manifest from formatting ([c163722](https://github.com/dkarter/ink/commit/c16372296719c5ebf9017c8474aa385ec139bdaa))
+
 ## 0.1.0 (2026-09-17)
 
 
