@@ -105,6 +105,27 @@ fn edit_006_change_selected_text() {
     assert_eq!(editor.cursor(), Position::new(0, 1));
     assert!(editor.insert("XY"));
     assert_eq!(editor.text(), "aXYd");
+
+    let mut final_line = Editor::textarea("one\ntwo");
+    final_line.set_cursor(Position::new(1, 0));
+    final_line.enter_visual_line();
+    assert!(final_line.change_selection());
+    assert_eq!(final_line.text(), "one\n");
+    assert_eq!(final_line.cursor(), Position::new(1, 0));
+    assert_eq!(final_line.unnamed_register(), "two\n");
+    assert!(final_line.insert("new"));
+    assert_eq!(final_line.text(), "one\nnew");
+
+    let mut tail = Editor::textarea("one\ntwo\nthree");
+    tail.set_cursor(Position::new(1, 0));
+    tail.enter_visual_line();
+    tail.move_down();
+    assert!(tail.change_selection());
+    assert_eq!(tail.text(), "one\n");
+    assert_eq!(tail.cursor(), Position::new(1, 0));
+    assert_eq!(tail.unnamed_register(), "two\nthree\n");
+    assert!(tail.insert("tail"));
+    assert_eq!(tail.text(), "one\ntail");
 }
 
 #[test]

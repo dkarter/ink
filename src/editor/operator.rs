@@ -164,20 +164,26 @@ impl Editor {
 
     fn apply_visual_line_operator(&mut self, next_mode: Mode) -> bool {
         let (first, last) = self.selected_line_interval();
+        let selected_start = self.line_bounds(first).0;
         self.unnamed_register = Register {
             text: self.linewise_text(first, last),
             linewise: true,
         };
         let range = self.line_delete_range(first, last);
         let start = range.start;
+        let consumed_preceding_separator = start < selected_start;
         self.text.replace_range(range, "");
+        let mut cursor = start;
         if next_mode == Mode::Insert {
             let insertion = start.min(self.text.len());
             if !self.text.is_empty() {
                 self.text.insert(insertion, '\n');
+                if consumed_preceding_separator {
+                    cursor = insertion + 1;
+                }
             }
         }
-        self.finish_operator(start, next_mode);
+        self.finish_operator(cursor, next_mode);
         true
     }
 
