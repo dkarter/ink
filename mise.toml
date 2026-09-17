@@ -16,7 +16,7 @@ mr-boxington = "v1.12.0"
 node = "24"
 pitchfork = "latest"
 ripgrep = "latest"
-rust = { version = "1.98.0", mr_boxington = true }
+rust = { version = "1.98.1", mr_boxington = true }
 
 [settings]
 npm.package_manager = "aube"
