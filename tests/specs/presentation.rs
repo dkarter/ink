@@ -1,6 +1,8 @@
 use crossterm::cursor::SetCursorStyle;
 use ink::{
+    config::ThemeName,
     editor::{Editor, Mode, Position},
+    theme,
     ui::{Input, InputState, Textarea, TextareaState},
 };
 use ratatui::{buffer::Buffer, layout::Rect, widgets::StatefulWidget};
@@ -207,6 +209,56 @@ fn ui_005_resize_triggers_bounded_redraw() {
             assert!(area.is_empty());
         }
     }
+}
+
+#[test]
+fn ui_006_input_background_is_opt_in() {
+    let editor = Editor::input("value").unwrap();
+    let palette = theme::resolve(ThemeName::TokyoNight, &Default::default()).palette;
+    let area = Rect::new(0, 0, 10, 1);
+
+    let mut transparent = Buffer::empty(area);
+    Input::new(&editor)
+        .palette(palette)
+        .render(area, &mut transparent, &mut InputState::default());
+    assert_eq!(
+        transparent.cell((0, 0)).unwrap().bg,
+        ratatui::style::Color::Reset
+    );
+
+    let mut configured = Buffer::empty(area);
+    Input::new(&editor)
+        .palette(palette)
+        .background(true)
+        .render(area, &mut configured, &mut InputState::default());
+    assert_eq!(
+        configured.cell((0, 0)).unwrap().bg,
+        palette.background.into()
+    );
+
+    let default = super::command_line::prompt("exec {ink} input --value text", b"\x03");
+    let tokyo_background = format!(
+        "48;2;{};{};{}",
+        palette.background.red, palette.background.green, palette.background.blue
+    );
+    assert!(
+        !default
+            .terminal
+            .windows(tokyo_background.len())
+            .any(|bytes| bytes == tokyo_background.as_bytes())
+    );
+
+    let overridden = super::command_line::prompt_with_config(
+        "exec {ink} input --value text",
+        b"\x03",
+        Some("[colors]\nbackground = \"#010203\"\n"),
+    );
+    assert!(
+        overridden
+            .terminal
+            .windows("48;2;1;2;3".len())
+            .any(|bytes| bytes == b"48;2;1;2;3")
+    );
 }
 
 fn textarea_in_mode(mode: Mode) -> Editor {

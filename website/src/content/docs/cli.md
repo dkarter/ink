@@ -21,7 +21,7 @@ The same options apply to `input` and `textarea`.
 | `--normal`       | Start in Normal mode instead of Insert mode                |
 | `--theme <NAME>` | Select a bundled or configured theme                       |
 
-`input` also accepts `--prompt <TEXT>`. Its default is `> `; pass an empty string to remove it. `textarea` uses five editable rows plus a status row by default and accepts `--fullscreen` to use the complete terminal.
+`input` also accepts `--prompt <TEXT>` and shows no prefix by default. `textarea` uses five editable rows plus a status row by default and accepts `--fullscreen` to use the complete terminal.
 
 ## Completion targets
 

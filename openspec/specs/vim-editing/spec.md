@@ -81,3 +81,50 @@ Ink SHALL keep a Normal-mode cursor on an existing grapheme when the buffer is n
 - GIVEN the cursor is at the beginning or end of a buffer
 - WHEN deletion removes adjacent or final text
 - THEN the cursor is clamped to the nearest remaining grapheme or zero for an empty buffer
+
+### Requirement: Move by words
+
+Ink SHALL support Vim word motions in Normal and Visual modes, treating `w`, `b`, and `e` as small-word motions and `W`, `B`, and `E` as whitespace-delimited WORD motions.
+
+#### Scenario: Move by word and WORD boundaries {#EDIT-011}
+
+- GIVEN text containing words, punctuation, whitespace, and Unicode graphemes
+- WHEN the user invokes `w`, `b`, `e`, `W`, `B`, or `E`
+- THEN the cursor moves to the matching next or previous boundary without splitting a grapheme
+- AND an active Visual selection expands to that boundary
+
+### Requirement: Compose operators with motions
+
+Ink SHALL compose delete, change, and yank operators with word motions and `iw`/`aw` text objects in Normal mode.
+
+#### Scenario: Delete or change a motion range {#EDIT-012}
+
+- GIVEN a prompt in Normal mode on text containing words and whitespace
+- WHEN the user invokes `d` or `c` followed by a word motion, `iw`, or `aw`
+- THEN exactly the computed motion or text-object range is deleted
+- AND delete returns to Normal mode while change enters Insert mode at the start of the deleted range
+
+#### Scenario: Yank and paste operator ranges {#EDIT-013}
+
+- GIVEN a prompt in Normal mode
+- WHEN the user yanks with a motion, text object, or `yy` and invokes `p` or `P`
+- THEN the unnamed register is pasted after or before the cursor for characterwise text
+- AND linewise text is pasted below or above the current textarea line
+
+#### Scenario: Apply linewise operators {#EDIT-014}
+
+- GIVEN a textarea in Normal mode
+- WHEN the user invokes `dd`, `cc`, or `yy`
+- THEN the operation applies to the complete current logical line
+- AND `cc` enters Insert mode while delete and yank remain in Normal mode
+
+### Requirement: Open textarea lines
+
+Ink SHALL support Vim line opening in textarea Normal mode.
+
+#### Scenario: Open a line for insertion {#EDIT-015}
+
+- GIVEN a textarea in Normal mode
+- WHEN the user invokes `o` or `O`
+- THEN Ink inserts an empty line below or above the current line respectively
+- AND enters Insert mode at the start of that line

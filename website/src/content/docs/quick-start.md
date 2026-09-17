@@ -14,7 +14,7 @@ printf '%s\n' "$title"
 
 Ink will start in Insert mode by default. The accepted text will be printed to standard output with one trailing newline. Pasted line breaks will be removed from single-line input.
 
-The input prompt defaults to `> `. Customize or remove it with `--prompt "Name: "` or `--prompt ""`.
+The input has no prefix by default. Add one with `--prompt "Name: "`.
 
 ## Edit multiple lines
 

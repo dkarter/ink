@@ -55,3 +55,14 @@ Ink SHALL recompute layout and viewport bounds from the latest terminal dimensio
 - GIVEN either prompt is running
 - WHEN the terminal reports a larger or smaller size
 - THEN the next frame uses the new area, clamps all dimensions, and does not panic at zero-sized intermediate areas
+
+### Requirement: Preserve the command background
+
+Ink SHALL leave the single-line input background transparent unless the user configures the `background` color role.
+
+#### Scenario: Input background is opt-in {#UI-006}
+
+- GIVEN a bundled theme without an explicit user background override
+- WHEN input renders
+- THEN its prompt and editable cells retain the terminal background
+- AND a configured `background` override fills those cells with the requested color

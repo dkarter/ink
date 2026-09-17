@@ -1,4 +1,4 @@
-use ink::editor::{Editor, InputError, Mode, Position};
+use ink::editor::{Editor, InputError, Mode, Motion, Position, TextObject};
 
 #[test]
 fn edit_001_enter_and_leave_insert_mode() {
@@ -192,6 +192,236 @@ fn edit_010_deleting_at_boundaries_keeps_a_valid_cursor() {
     assert_eq!(visual.cursor(), Position::new(0, 0));
     assert!(visual.yank_selection());
     assert_eq!(visual.cursor(), Position::new(1, 0));
+}
+
+#[test]
+fn edit_011_move_by_word_and_word_boundaries() {
+    let mut editor = Editor::input("one two-three  界word").unwrap();
+    editor.move_word_forward();
+    assert_eq!(editor.cursor(), Position::new(0, 4));
+    editor.move_word_forward();
+    assert_eq!(editor.cursor(), Position::new(0, 7));
+    editor.move_word_forward();
+    assert_eq!(editor.cursor(), Position::new(0, 8));
+    editor.move_word_backward();
+    assert_eq!(editor.cursor(), Position::new(0, 7));
+    editor.move_big_word_forward();
+    assert_eq!(editor.cursor(), Position::new(0, 15));
+    editor.move_big_word_backward();
+    assert_eq!(editor.cursor(), Position::new(0, 4));
+
+    editor.enter_visual();
+    editor.move_big_word_forward();
+    assert_eq!(editor.selected_text(), "two-three  界");
+
+    let mut ends = Editor::input("one two-three").unwrap();
+    ends.move_word_end();
+    assert_eq!(ends.cursor(), Position::new(0, 2));
+    ends.move_word_end();
+    assert_eq!(ends.cursor(), Position::new(0, 6));
+    ends.move_word_end();
+    assert_eq!(ends.cursor(), Position::new(0, 7));
+    ends.move_word_end();
+    assert_eq!(ends.cursor(), Position::new(0, 12));
+
+    let mut big_ends = Editor::input("one two-three").unwrap();
+    big_ends.move_big_word_end();
+    assert_eq!(big_ends.cursor(), Position::new(0, 2));
+    big_ends.move_big_word_end();
+    assert_eq!(big_ends.cursor(), Position::new(0, 12));
+
+    let mut visual_end = Editor::input("one two").unwrap();
+    visual_end.enter_visual();
+    visual_end.move_word_end();
+    assert_eq!(visual_end.selected_text(), "one");
+
+    for keys in [b"wwbx\r".as_slice(), b"WWBx\r".as_slice()] {
+        let result =
+            super::command_line::prompt("exec {ink} input --normal --value 'one two-three'", keys);
+        assert_eq!(result.status, 0);
+        assert_eq!(result.stdout, b"one wo-three\n");
+    }
+
+    for (keys, expected) in [
+        (b"eeex\r".as_slice(), b"one twothree\n".as_slice()),
+        (b"EEx\r".as_slice(), b"one two-thre\n".as_slice()),
+    ] {
+        let result =
+            super::command_line::prompt("exec {ink} input --normal --value 'one two-three'", keys);
+        assert_eq!(result.status, 0);
+        assert_eq!(result.stdout, expected);
+    }
+}
+
+#[test]
+fn edit_012_delete_or_change_a_motion_range() {
+    let mut deleted = Editor::input("one two").unwrap();
+    assert!(deleted.delete_motion(Motion::WordForward));
+    assert_eq!(deleted.text(), "two");
+    assert_eq!(deleted.unnamed_register(), "one ");
+    assert_eq!(deleted.mode(), Mode::Normal);
+
+    let mut inner = Editor::input("one two").unwrap();
+    assert!(inner.delete_text_object(TextObject::InnerWord));
+    assert_eq!(inner.text(), " two");
+
+    let mut around = Editor::input("one two").unwrap();
+    assert!(around.delete_text_object(TextObject::AWord));
+    assert_eq!(around.text(), "two");
+
+    let mut changed = Editor::input("one two").unwrap();
+    assert!(changed.change_text_object(TextObject::InnerWord));
+    assert_eq!(changed.text(), " two");
+    assert_eq!(changed.mode(), Mode::Insert);
+    assert!(changed.insert("new"));
+    assert_eq!(changed.text(), "new two");
+
+    let mut cross_line = Editor::textarea("one\ntwo");
+    assert!(cross_line.delete_motion(Motion::WordForward));
+    assert_eq!(cross_line.text(), "\ntwo");
+
+    let mut change_word = Editor::input("one two").unwrap();
+    assert!(change_word.change_motion(Motion::WordForward));
+    assert_eq!(change_word.text(), " two");
+
+    let mut change_whitespace = Editor::input("one   two").unwrap();
+    change_whitespace.move_word_end();
+    change_whitespace.move_right();
+    assert!(change_whitespace.change_motion(Motion::WordForward));
+    assert_eq!(change_whitespace.text(), "onetwo");
+
+    let mut whitespace = Editor::input("one   two").unwrap();
+    whitespace.move_word_end();
+    whitespace.move_right();
+    assert!(whitespace.delete_text_object(TextObject::InnerWord));
+    assert_eq!(whitespace.text(), "onetwo");
+
+    let mut decomposed = Editor::input("e\u{301}lan test").unwrap();
+    assert!(decomposed.delete_text_object(TextObject::InnerWord));
+    assert_eq!(decomposed.text(), " test");
+
+    for (keys, expected) in [
+        (b"dw\r".as_slice(), b"two\n".as_slice()),
+        (b"diw\r".as_slice(), b" two\n".as_slice()),
+        (b"daw\r".as_slice(), b"two\n".as_slice()),
+        (b"ciwnew\x04".as_slice(), b"new two\n".as_slice()),
+    ] {
+        let result =
+            super::command_line::prompt("exec {ink} input --normal --value 'one two'", keys);
+        assert_eq!(result.status, 0);
+        assert_eq!(result.stdout, expected);
+    }
+}
+
+#[test]
+fn edit_013_yank_and_paste_operator_ranges() {
+    let mut characters = Editor::input("one two").unwrap();
+    assert!(characters.yank_motion(Motion::WordForward));
+    assert_eq!(characters.unnamed_register(), "one ");
+    characters.move_to_line_end();
+    assert!(characters.paste_after());
+    assert_eq!(characters.text(), "one twoone ");
+    assert!(characters.paste_after());
+    assert_eq!(characters.text(), "one twoone one ");
+
+    let mut lines = Editor::textarea("one\ntwo");
+    assert!(lines.yank_line());
+    lines.move_down();
+    assert!(lines.paste_before());
+    assert_eq!(lines.text(), "one\none\ntwo");
+    assert!(lines.paste_after());
+    assert_eq!(lines.text(), "one\none\none\ntwo");
+
+    let mut blank_line = Editor::textarea("one\n\ntwo");
+    blank_line.enter_visual_line();
+    blank_line.move_down();
+    assert!(blank_line.yank_selection());
+    blank_line.move_down();
+    assert!(blank_line.paste_after());
+    assert_eq!(blank_line.text(), "one\n\ntwo\none\n");
+
+    let result = super::command_line::prompt(
+        "exec {ink} textarea --normal --value 'one\ntwo'",
+        b"yyjP\x04",
+    );
+    assert_eq!(result.status, 0);
+    assert_eq!(result.stdout, b"one\none\ntwo\n");
+
+    for (keys, expected) in [
+        (b"yw$p\r".as_slice(), b"one twoone \n".as_slice()),
+        (b"yiw$p\r".as_slice(), b"one twoone\n".as_slice()),
+    ] {
+        let result =
+            super::command_line::prompt("exec {ink} input --normal --value 'one two'", keys);
+        assert_eq!(result.status, 0);
+        assert_eq!(result.stdout, expected);
+    }
+
+    let result = super::command_line::prompt(
+        "exec {ink} textarea --normal --value 'one\ntwo'",
+        b"yyp\x04",
+    );
+    assert_eq!(result.status, 0);
+    assert_eq!(result.stdout, b"one\none\ntwo\n");
+}
+
+#[test]
+fn edit_014_apply_linewise_operators() {
+    let mut deleted = Editor::textarea("one\ntwo");
+    assert!(deleted.delete_line());
+    assert_eq!(deleted.text(), "two");
+    assert_eq!(deleted.mode(), Mode::Normal);
+
+    let mut changed = Editor::textarea("one\ntwo");
+    assert!(changed.change_line());
+    assert_eq!(changed.text(), "\ntwo");
+    assert_eq!(changed.mode(), Mode::Insert);
+
+    let mut empty = Editor::textarea("");
+    assert!(empty.change_line());
+    assert_eq!(empty.text(), "");
+    assert_eq!(empty.mode(), Mode::Insert);
+
+    let mut yanked = Editor::textarea("one\ntwo");
+    assert!(yanked.yank_line());
+    assert_eq!(yanked.text(), "one\ntwo");
+    assert_eq!(yanked.unnamed_register(), "one\n");
+    assert_eq!(yanked.mode(), Mode::Normal);
+
+    for (keys, expected) in [
+        (b"dd\x04".as_slice(), b"two\n".as_slice()),
+        (b"ccnew\x04".as_slice(), b"new\ntwo\n".as_slice()),
+    ] {
+        let result =
+            super::command_line::prompt("exec {ink} textarea --normal --value 'one\ntwo'", keys);
+        assert_eq!(result.status, 0);
+        assert_eq!(result.stdout, expected);
+    }
+}
+
+#[test]
+fn edit_015_open_a_line_for_insertion() {
+    let mut below = Editor::textarea("one\ntwo");
+    assert!(below.open_line_below());
+    assert_eq!(below.text(), "one\n\ntwo");
+    assert_eq!(below.cursor(), Position::new(1, 0));
+    assert_eq!(below.mode(), Mode::Insert);
+
+    let mut above = Editor::textarea("one\ntwo");
+    above.move_down();
+    assert!(above.open_line_above());
+    assert_eq!(above.text(), "one\n\ntwo");
+    assert_eq!(above.cursor(), Position::new(1, 0));
+    assert_eq!(above.mode(), Mode::Insert);
+
+    for (key, expected) in [(b'o', "one\nnew\ntwo\n"), (b'O', "new\none\ntwo\n")] {
+        let mut keys = vec![key];
+        keys.extend_from_slice(b"new\x04");
+        let result =
+            super::command_line::prompt("exec {ink} textarea --normal --value 'one\ntwo'", &keys);
+        assert_eq!(result.status, 0);
+        assert_eq!(String::from_utf8(result.stdout).unwrap(), expected);
+    }
 }
 
 fn block_editor() -> Editor {

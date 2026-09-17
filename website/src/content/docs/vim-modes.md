@@ -34,4 +34,6 @@ Movement and editing are specified in extended grapheme clusters rather than byt
 
 For multiline values, the viewport follows the cursor horizontally and vertically without altering the underlying buffer. Layout is recomputed after terminal resize events, including very narrow and transient zero-sized areas.
 
-Arrow keys move in Insert mode. Normal and Visual modes support `h`, `j`, `k`, `l`, `0`, and `$`; `i`, `v`, `V`, and Ctrl-V enter editing modes; and `d`, `c`, and `y` act on Visual selections. Ctrl-C cancels in every mode, `q` cancels from Normal mode, and Ctrl-D accepts.
+Arrow keys move in Insert mode. Normal and Visual modes support `h`, `j`, `k`, `l`, `0`, `$`, `w`, `b`, `e`, `W`, `B`, and `E`; `i`, `v`, `V`, and Ctrl-V enter editing modes; and `d`, `c`, and `y` act on Visual selections. Lowercase word motions stop at keyword and punctuation boundaries, while uppercase WORD motions stop at whitespace boundaries. Ctrl-C cancels in every mode, `q` cancels from Normal mode, and Ctrl-D accepts.
+
+In Normal mode, `d`, `c`, and `y` compose with word motions and `iw`/`aw`. Repeating the operator (`dd`, `cc`, or `yy`) applies it linewise. Use `p` or `P` to paste after/before the cursor; linewise textarea registers paste below/above the current line. Textarea also supports `o` and `O` to open a line below/above and enter Insert mode.

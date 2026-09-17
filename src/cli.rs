@@ -114,6 +114,7 @@ pub trait CliRuntime {
 pub struct ResolvedPromptOptions {
     pub settings: Settings,
     pub theme: theme::ResolvedTheme,
+    pub input_background: bool,
 }
 
 /// Resolve all configuration that the prompt runtime will receive.
@@ -122,7 +123,12 @@ pub struct ResolvedPromptOptions {
 pub fn resolve_prompt_options(config: &config::Config, cli: &CliOptions) -> ResolvedPromptOptions {
     let settings = Settings::resolve(config, cli);
     let theme = theme::resolve(settings.theme, &config.colors);
-    ResolvedPromptOptions { settings, theme }
+    let input_background = config.colors.contains_key(&theme::ColorRole::Background);
+    ResolvedPromptOptions {
+        settings,
+        theme,
+        input_background,
+    }
 }
 
 struct ProcessRuntime;
@@ -159,7 +165,7 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
             prompt.normal,
             prompt.theme,
             PromptKind::Input,
-            prompt.prompt.unwrap_or_else(|| "> ".to_owned()),
+            prompt.prompt.unwrap_or_default(),
             false,
             runtime,
         ),

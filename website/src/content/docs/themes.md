@@ -32,6 +32,8 @@ ink textarea --theme catppuccin-mocha
 
 User configuration overrides individual semantic color roles after loading a bundled base palette. Roles not overridden retain the selected theme’s values.
 
+Single-line input leaves the terminal background untouched by default. Set the `background` role explicitly when a filled input row is preferred.
+
 Unknown theme names, color roles, or color values fail startup before terminal state changes. Colors use `#RRGGBB` syntax; configuration supports the semantic roles listed in the project README.
 
 ## Accessibility

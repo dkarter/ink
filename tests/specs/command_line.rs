@@ -206,6 +206,10 @@ fn cli_008_command_line_seed_wins() {
 
 #[test]
 fn cli_009_configure_the_input_prompt() {
+    let result = prompt("exec {ink} input", b"value\r");
+    assert_eq!(result.stdout, b"value\n");
+    assert!(!result.terminal.windows(2).any(|bytes| bytes == b"> "));
+
     let result = prompt("exec {ink} input --prompt 'name: '", b"Dorian\r");
     assert_eq!(result.status, 0);
     assert_eq!(result.stdout, b"Dorian\n");

@@ -45,6 +45,7 @@ pub struct Input<'a> {
     prompt: &'a str,
     palette: Option<Palette>,
     show_mode: bool,
+    background: bool,
 }
 
 impl<'a> Input<'a> {
@@ -55,6 +56,7 @@ impl<'a> Input<'a> {
             prompt: "",
             palette: None,
             show_mode: true,
+            background: false,
         }
     }
 
@@ -75,6 +77,12 @@ impl<'a> Input<'a> {
         self.show_mode = show_mode;
         self
     }
+
+    #[must_use]
+    pub const fn background(mut self, background: bool) -> Self {
+        self.background = background;
+        self
+    }
 }
 
 impl StatefulWidget for Input<'_> {
@@ -82,9 +90,12 @@ impl StatefulWidget for Input<'_> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.cursor = None;
-        if let Some(palette) = self.palette {
+        if let Some(palette) = self.palette.filter(|_| self.background) {
             buf.set_style(area, base_style(palette));
         }
+        let input_style = self
+            .palette
+            .map(|palette| input_style(palette, self.background));
         let mode = mode_label(self.editor.mode());
         let prompt_width = text_width(self.prompt);
         let mode_width = text_width(mode);
@@ -128,7 +139,7 @@ impl StatefulWidget for Input<'_> {
                 area.x,
                 area.y,
                 prompt_width,
-                TextDecoration::plain(self.palette.map(base_style)),
+                TextDecoration::plain(input_style),
                 buf,
             );
         }
@@ -155,7 +166,7 @@ impl StatefulWidget for Input<'_> {
             TextDecoration::selected(
                 0,
                 &self.editor.selection_ranges(),
-                self.palette.map(base_style),
+                input_style,
                 self.palette.map(selection_style),
             ),
             buf,
@@ -442,6 +453,15 @@ fn base_style(palette: Palette) -> Style {
     Style::default()
         .fg(palette.foreground.into())
         .bg(palette.background.into())
+}
+
+fn input_style(palette: Palette, background: bool) -> Style {
+    let style = Style::default().fg(palette.foreground.into());
+    if background {
+        style.bg(palette.background.into())
+    } else {
+        style
+    }
 }
 
 fn selection_style(palette: Palette) -> Style {

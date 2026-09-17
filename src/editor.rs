@@ -1,6 +1,6 @@
 //! Composable Vim-style editor state for input and textarea widgets.
 
-use std::fmt;
+use std::{fmt, ops::Range};
 
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -34,6 +34,24 @@ pub enum InputError {
     LineBreak,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Motion {
+    WordForward,
+    WordBackward,
+    WordEnd,
+    BigWordForward,
+    BigWordBackward,
+    BigWordEnd,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TextObject {
+    InnerWord,
+    AWord,
+    InnerBigWord,
+    ABigWord,
+}
+
 impl fmt::Display for InputError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -56,11 +74,17 @@ pub struct Editor {
     cursor: Position,
     mode: Mode,
     anchor: Option<Position>,
-    unnamed_register: String,
+    unnamed_register: Register,
     kind: BufferKind,
     preferred_display_column: Option<usize>,
     insert_origin: Option<Position>,
     insert_advanced: bool,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct Register {
+    text: String,
+    linewise: bool,
 }
 
 impl Editor {
@@ -88,7 +112,7 @@ impl Editor {
             cursor: Position::default(),
             mode: Mode::Normal,
             anchor: None,
-            unnamed_register: String::new(),
+            unnamed_register: Register::default(),
             kind,
             preferred_display_column: None,
             insert_origin: None,
@@ -115,7 +139,7 @@ impl Editor {
 
     #[must_use]
     pub fn unnamed_register(&self) -> &str {
-        &self.unnamed_register
+        &self.unnamed_register.text
     }
 
     pub fn set_cursor(&mut self, position: Position) {
@@ -222,12 +246,133 @@ impl Editor {
         self.preferred_display_column = None;
     }
 
+    pub fn move_word_forward(&mut self) {
+        self.move_word(true, false);
+    }
+
+    pub fn move_word_backward(&mut self) {
+        self.move_word(false, false);
+    }
+
+    pub fn move_big_word_forward(&mut self) {
+        self.move_word(true, true);
+    }
+
+    pub fn move_big_word_backward(&mut self) {
+        self.move_word(false, true);
+    }
+
+    pub fn move_word_end(&mut self) {
+        self.move_word_end_with(false);
+    }
+
+    pub fn move_big_word_end(&mut self) {
+        self.move_word_end_with(true);
+    }
+
     pub fn delete_selection(&mut self) -> bool {
         self.apply_operator(Mode::Normal)
     }
 
     pub fn change_selection(&mut self) -> bool {
         self.apply_operator(Mode::Insert)
+    }
+
+    pub fn delete_motion(&mut self, motion: Motion) -> bool {
+        self.apply_motion(motion, Mode::Normal)
+    }
+
+    pub fn change_motion(&mut self, motion: Motion) -> bool {
+        let motion = match motion {
+            Motion::WordForward if !self.cursor_is_whitespace(false) => Motion::WordEnd,
+            Motion::BigWordForward if !self.cursor_is_whitespace(true) => Motion::BigWordEnd,
+            motion => motion,
+        };
+        self.apply_motion(motion, Mode::Insert)
+    }
+
+    pub fn delete_text_object(&mut self, object: TextObject) -> bool {
+        self.text_object_range(object)
+            .is_some_and(|range| self.apply_range(range, Mode::Normal, false))
+    }
+
+    pub fn change_text_object(&mut self, object: TextObject) -> bool {
+        self.text_object_range(object)
+            .is_some_and(|range| self.apply_range(range, Mode::Insert, false))
+    }
+
+    pub fn yank_motion(&mut self, motion: Motion) -> bool {
+        let start = self.position_to_byte(self.cursor, false);
+        let Some(range) = self.motion_range(motion) else {
+            return false;
+        };
+        self.yank_range(range, start, false)
+    }
+
+    pub fn yank_text_object(&mut self, object: TextObject) -> bool {
+        let start = self.position_to_byte(self.cursor, false);
+        self.text_object_range(object)
+            .is_some_and(|range| self.yank_range(range, start, false))
+    }
+
+    pub fn delete_line(&mut self) -> bool {
+        self.apply_range(
+            self.line_range(self.cursor.line, self.cursor.line),
+            Mode::Normal,
+            true,
+        )
+    }
+
+    pub fn change_line(&mut self) -> bool {
+        let (start, end) = self.line_bounds(self.cursor.line);
+        if start == end {
+            self.unnamed_register = Register {
+                text: String::new(),
+                linewise: true,
+            };
+            self.enter_insert();
+            return true;
+        }
+        self.apply_range(start..end, Mode::Insert, true)
+    }
+
+    pub fn yank_line(&mut self) -> bool {
+        let start = self.line_bounds(self.cursor.line).0;
+        self.yank_range(
+            self.line_range(self.cursor.line, self.cursor.line),
+            start,
+            true,
+        )
+    }
+
+    pub fn paste_after(&mut self) -> bool {
+        self.paste(false)
+    }
+
+    pub fn paste_before(&mut self) -> bool {
+        self.paste(true)
+    }
+
+    pub fn open_line_below(&mut self) -> bool {
+        if self.mode != Mode::Normal || self.kind != BufferKind::Textarea {
+            return false;
+        }
+        let insertion = self.line_bounds(self.cursor.line).1;
+        self.text.insert(insertion, '\n');
+        self.cursor = self.position_from_byte(insertion + 1);
+        self.enter_insert();
+        true
+    }
+
+    pub fn open_line_above(&mut self) -> bool {
+        if self.mode != Mode::Normal || self.kind != BufferKind::Textarea {
+            return false;
+        }
+        let insertion = self.line_bounds(self.cursor.line).0;
+        self.text.insert(insertion, '\n');
+        self.cursor = self.position_from_byte(insertion);
+        self.enter_insert();
+        true
     }
 
     pub fn yank_selection(&mut self) -> bool {
@@ -237,7 +382,10 @@ impl Editor {
 
         let start = self.selection_start();
         let ranges = self.selection_ranges();
-        self.unnamed_register = self.text_for_ranges(&ranges);
+        self.unnamed_register = Register {
+            text: self.text_for_ranges(&ranges),
+            linewise: self.mode == Mode::VisualLine,
+        };
         let start = self.position_to_byte(start, false);
         self.clear_selection(Mode::Normal);
         self.cursor = self.normal_position_from_byte(start);
@@ -253,7 +401,10 @@ impl Editor {
         if start == end || self.text[start..end].contains('\n') {
             return false;
         }
-        self.unnamed_register = self.text[start..end].to_owned();
+        self.unnamed_register = Register {
+            text: self.text[start..end].to_owned(),
+            linewise: false,
+        };
         self.text.replace_range(start..end, "");
         self.cursor = self.normal_position_from_byte(start);
         self.preferred_display_column = None;
@@ -301,9 +452,13 @@ impl Editor {
             return false;
         }
 
+        let linewise = self.mode == Mode::VisualLine;
         let ranges = self.selection_ranges();
         let start = ranges.first().map_or(0, |range| range.start);
-        self.unnamed_register = self.text_for_ranges(&ranges);
+        self.unnamed_register = Register {
+            text: self.text_for_ranges(&ranges),
+            linewise,
+        };
         for range in ranges.into_iter().rev() {
             self.text.replace_range(range, "");
         }
@@ -317,6 +472,152 @@ impl Editor {
         self.insert_advanced = false;
         self.preferred_display_column = None;
         true
+    }
+
+    fn apply_motion(&mut self, motion: Motion, next_mode: Mode) -> bool {
+        let Some(range) = self.motion_range(motion) else {
+            return false;
+        };
+        self.apply_range(range, next_mode, false)
+    }
+
+    fn motion_range(&mut self, motion: Motion) -> Option<Range<usize>> {
+        if self.mode != Mode::Normal {
+            return None;
+        }
+        let start = self.position_to_byte(self.cursor, false);
+        match motion {
+            Motion::WordForward => self.move_word_forward(),
+            Motion::WordBackward => self.move_word_backward(),
+            Motion::WordEnd => self.move_word_end(),
+            Motion::BigWordForward => self.move_big_word_forward(),
+            Motion::BigWordBackward => self.move_big_word_backward(),
+            Motion::BigWordEnd => self.move_big_word_end(),
+        }
+        let target = self.position_to_byte(self.cursor, false);
+        let range = match motion {
+            Motion::WordForward | Motion::BigWordForward
+                if self.position_from_byte(start).line != self.position_from_byte(target).line =>
+            {
+                start..self.line_bounds(self.position_from_byte(start).line).1
+            }
+            Motion::WordForward | Motion::BigWordForward => start..target,
+            Motion::WordBackward | Motion::BigWordBackward => target..start,
+            Motion::WordEnd | Motion::BigWordEnd => start..self.next_grapheme_boundary(target),
+        };
+        (!range.is_empty()).then_some(range)
+    }
+
+    fn text_object_range(&self, object: TextObject) -> Option<Range<usize>> {
+        if self.mode != Mode::Normal || self.text.is_empty() {
+            return None;
+        }
+        let big = matches!(object, TextObject::InnerBigWord | TextObject::ABigWord);
+        let around = matches!(object, TextObject::AWord | TextObject::ABigWord);
+        let graphemes = self
+            .text
+            .grapheme_indices(true)
+            .map(|(byte, grapheme)| (byte, grapheme.len(), word_class(grapheme, big)))
+            .collect::<Vec<_>>();
+        let cursor = self.position_to_byte(self.cursor, false);
+        let index = graphemes
+            .partition_point(|(byte, _, _)| *byte < cursor)
+            .min(graphemes.len() - 1);
+        let class = graphemes[index].2;
+        let mut first = index;
+        let mut last = index;
+        while first > 0 && graphemes[first - 1].2 == class {
+            first -= 1;
+        }
+        while last + 1 < graphemes.len() && graphemes[last + 1].2 == class {
+            last += 1;
+        }
+        if around {
+            if last + 1 < graphemes.len() && graphemes[last + 1].2 == WordClass::Space {
+                while last + 1 < graphemes.len() && graphemes[last + 1].2 == WordClass::Space {
+                    last += 1;
+                }
+            } else {
+                while first > 0 && graphemes[first - 1].2 == WordClass::Space {
+                    first -= 1;
+                }
+            }
+        }
+        Some(graphemes[first].0..graphemes[last].0 + graphemes[last].1)
+    }
+
+    fn apply_range(&mut self, range: Range<usize>, next_mode: Mode, linewise: bool) -> bool {
+        if range.is_empty() {
+            return false;
+        }
+        let start = range.start;
+        self.unnamed_register = Register {
+            text: self.text[range.clone()].to_owned(),
+            linewise,
+        };
+        self.text.replace_range(range, "");
+        self.clear_selection(next_mode);
+        self.cursor = if next_mode == Mode::Insert {
+            self.position_from_byte(start.min(self.text.len()))
+        } else {
+            self.normal_position_from_byte(start.min(self.text.len()))
+        };
+        self.insert_origin = (next_mode == Mode::Insert).then_some(self.cursor);
+        self.insert_advanced = false;
+        self.preferred_display_column = None;
+        true
+    }
+
+    fn yank_range(&mut self, range: Range<usize>, cursor: usize, linewise: bool) -> bool {
+        if range.is_empty() {
+            return false;
+        }
+        self.unnamed_register = Register {
+            text: self.text[range].to_owned(),
+            linewise,
+        };
+        self.clear_selection(Mode::Normal);
+        self.cursor = self.normal_position_from_byte(cursor.min(self.text.len()));
+        self.preferred_display_column = None;
+        true
+    }
+
+    fn paste(&mut self, before: bool) -> bool {
+        if self.mode != Mode::Normal || self.unnamed_register.text.is_empty() {
+            return false;
+        }
+        let register = self.unnamed_register.clone();
+        if register.linewise && self.kind == BufferKind::Textarea {
+            let content = register.text.strip_suffix('\n').unwrap_or(&register.text);
+            let (line_start, line_end) = self.line_bounds(self.cursor.line);
+            let (insertion, value, cursor) = if before {
+                (line_start, format!("{content}\n"), line_start)
+            } else {
+                (line_end, format!("\n{content}"), line_end + 1)
+            };
+            self.text.insert_str(insertion, &value);
+            self.cursor = self.normal_position_from_byte(cursor);
+        } else {
+            let cursor = self.position_to_byte(self.cursor, false);
+            let insertion = if before {
+                cursor
+            } else {
+                self.next_grapheme_boundary(cursor)
+            };
+            self.text.insert_str(insertion, &register.text);
+            let end = insertion + register.text.len();
+            self.cursor = self.normal_position_from_byte(self.previous_grapheme_boundary(end));
+        }
+        self.preferred_display_column = None;
+        true
+    }
+
+    fn cursor_is_whitespace(&self, big: bool) -> bool {
+        let cursor = self.position_to_byte(self.cursor, false);
+        self.text[cursor..]
+            .graphemes(true)
+            .next()
+            .is_none_or(|grapheme| word_class(grapheme, big) == WordClass::Space)
     }
 
     fn move_vertical(&mut self, direction: isize) {
@@ -348,6 +649,78 @@ impl Editor {
         } else {
             position
         };
+    }
+
+    fn move_word(&mut self, forward: bool, big: bool) {
+        let graphemes = self
+            .text
+            .grapheme_indices(true)
+            .map(|(byte, grapheme)| (byte, word_class(grapheme, big)))
+            .collect::<Vec<_>>();
+        if graphemes.is_empty() {
+            return;
+        }
+
+        let cursor_byte = self.position_to_byte(self.cursor, self.mode == Mode::Insert);
+        let mut index = graphemes
+            .partition_point(|(byte, _)| *byte < cursor_byte)
+            .min(graphemes.len() - 1);
+        if forward {
+            let class = graphemes[index].1;
+            if class != WordClass::Space {
+                while index < graphemes.len() && graphemes[index].1 == class {
+                    index += 1;
+                }
+            }
+            while index < graphemes.len() && graphemes[index].1 == WordClass::Space {
+                index += 1;
+            }
+            index = index.min(graphemes.len() - 1);
+        } else if index > 0 {
+            index -= 1;
+            while index > 0 && graphemes[index].1 == WordClass::Space {
+                index -= 1;
+            }
+            let class = graphemes[index].1;
+            while index > 0 && graphemes[index - 1].1 == class {
+                index -= 1;
+            }
+        }
+
+        self.cursor = self.normal_position_from_byte(graphemes[index].0);
+        self.preferred_display_column = None;
+    }
+
+    fn move_word_end_with(&mut self, big: bool) {
+        let graphemes = self
+            .text
+            .grapheme_indices(true)
+            .map(|(byte, grapheme)| (byte, word_class(grapheme, big)))
+            .collect::<Vec<_>>();
+        if graphemes.is_empty() {
+            return;
+        }
+
+        let cursor_byte = self.position_to_byte(self.cursor, self.mode == Mode::Insert);
+        let mut index = graphemes
+            .partition_point(|(byte, _)| *byte < cursor_byte)
+            .min(graphemes.len() - 1);
+        let class = graphemes[index].1;
+        let at_end = class != WordClass::Space
+            && (index + 1 == graphemes.len() || graphemes[index + 1].1 != class);
+        if class == WordClass::Space || at_end {
+            index = (index + usize::from(at_end)).min(graphemes.len() - 1);
+            while index < graphemes.len() - 1 && graphemes[index].1 == WordClass::Space {
+                index += 1;
+            }
+        }
+        let class = graphemes[index].1;
+        while index < graphemes.len() - 1 && graphemes[index + 1].1 == class {
+            index += 1;
+        }
+
+        self.cursor = self.normal_position_from_byte(graphemes[index].0);
+        self.preferred_display_column = None;
     }
 
     fn display_column(&self, position: Position) -> usize {
@@ -493,4 +866,26 @@ fn display_width(grapheme: &str) -> usize {
 
 fn contains_line_break(text: &str) -> bool {
     text.contains(['\n', '\r'])
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum WordClass {
+    Space,
+    Keyword,
+    Punctuation,
+}
+
+fn word_class(grapheme: &str, big: bool) -> WordClass {
+    if grapheme.chars().all(char::is_whitespace) {
+        WordClass::Space
+    } else if big
+        || grapheme
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_alphanumeric() || character == '_')
+    {
+        WordClass::Keyword
+    } else {
+        WordClass::Punctuation
+    }
 }

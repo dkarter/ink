@@ -41,6 +41,7 @@ theme = "catppuccin-mocha"
 ```
 
 Theme names are case-insensitive and use hyphens as separators.
+Single-line input has no prefix or background by default. Use `--prompt "Name: "` to add a prefix; configure `[colors].background` to fill the input row.
 
 ## Development
 

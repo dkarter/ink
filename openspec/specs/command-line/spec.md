@@ -76,9 +76,10 @@ Ink SHALL render input and textarea as compact inline prompts by default, while 
 
 #### Scenario: Configure the input prompt {#CLI-009}
 
-- GIVEN `ink input --prompt <text>`
+- GIVEN `ink input` with or without `--prompt <text>`
 - WHEN the prompt renders
-- THEN the configured text prefixes the editable value, including an empty prefix when requested
+- THEN no prefix is shown by default
+- AND configured text prefixes the editable value when requested
 
 #### Scenario: Keep textarea compact by default {#CLI-010}
 

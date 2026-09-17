@@ -69,7 +69,7 @@ impl Editor {
         start..end
     }
 
-    fn line_range(&self, first: usize, second: usize) -> Range<usize> {
+    pub(super) fn line_range(&self, first: usize, second: usize) -> Range<usize> {
         let start_line = first.min(second);
         let end_line = first.max(second);
         let start = self.line_bounds(start_line).0;
