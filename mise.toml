@@ -7,7 +7,7 @@ ink = "cargo run --bin ink --"
 "aqua:rhysd/actionlint" = "1.7.12"
 "github:crate-ci/committed" = "latest"
 "npm:@fission-ai/openspec" = { version = "1.13.0", allow_builds = false }
-aube = "2.2.12"
+aube = "v2.2.17"
 dprint = "0.57.4"
 fnox = "latest"
 gitleaks = "latest"
