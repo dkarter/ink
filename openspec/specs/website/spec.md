@@ -16,3 +16,14 @@ Ink SHALL build website links and assets for the root of its canonical custom do
 - WHEN a visitor opens the home page or documentation
 - THEN canonical metadata identifies the custom domain
 - AND navigation and generated assets resolve from the domain root without an `/ink` path prefix
+
+### Requirement: Describe the available product
+
+Ink SHALL describe its commands and capabilities as available behavior without prototype, roadmap, or development-status language.
+
+#### Scenario: Documentation reflects current behavior {#WEB-002}
+
+- GIVEN the public home page and documentation
+- WHEN a visitor reads the product overview, installation guide, or reference pages
+- THEN implemented behavior is described directly in the present tense
+- AND the copy does not characterize Ink as planned, proposed, experimental, or under development

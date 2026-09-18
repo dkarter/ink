@@ -15,7 +15,7 @@ Mise selects the archive for the current supported platform. GitHub Releases pro
 
 ## Build from source
 
-Contributors can build the current command-line scaffold from source with a recent stable Rust toolchain:
+Build Ink from source with a recent stable Rust toolchain:
 
 ```sh
 git clone https://github.com/dkarter/ink.git
@@ -23,8 +23,8 @@ cd ink
 cargo build
 ```
 
-This produces a development binary at `target/debug/ink` with interactive input, textarea, help, and shell completion commands.
+This produces `target/debug/ink` with interactive input, textarea, theme, configuration, help, and shell completion commands.
 
-## Requirements for future prompt use
+## Terminal requirements
 
 The interactive commands require a controlling terminal. Piped text may provide an initial value, but Ink still needs a terminal for editing. A non-interactive environment without a controlling terminal fails cleanly without writing to standard output.

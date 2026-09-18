@@ -11,3 +11,43 @@ fn web_001_custom_domain_loads_styled_pages() {
     assert!(home.contains("const site = \"https://ink.doriankarter.com\";"));
     assert!(!home.contains("https://dkarter.github.io/ink/"));
 }
+
+#[test]
+fn web_002_documentation_reflects_current_behavior() {
+    let sources = [
+        "website/src/pages/index.astro",
+        "website/src/content/docs/index.mdx",
+        "website/src/content/docs/install.md",
+        "website/src/content/docs/quick-start.md",
+        "website/src/content/docs/cli.md",
+        "website/src/content/docs/vim-modes.md",
+        "website/src/content/docs/configuration.md",
+        "website/src/content/docs/themes.md",
+        "website/astro.config.mjs",
+        "website/public/og-image.svg",
+    ]
+    .map(|path| fs::read_to_string(path).expect("read website source"))
+    .join("\n")
+    .to_lowercase();
+
+    for stale in [
+        "experimental",
+        "prototype",
+        "roadmap",
+        "planned",
+        "proposed",
+        "specified",
+        "intended",
+        "should",
+        "early development",
+        "work in progress",
+        "still being written",
+        "being designed",
+        "in development",
+        "bootstrap project",
+        "not implemented",
+        "future prompt",
+    ] {
+        assert!(!sources.contains(stale), "stale product copy: {stale}");
+    }
+}

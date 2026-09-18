@@ -12,7 +12,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "ink",
-      description: "A planned Vim-style prompt editor for the terminal.",
+      description: "A Vim-style prompt editor for composable terminal workflows.",
       favicon: "/favicon.svg",
       head: [
         {

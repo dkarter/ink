@@ -45,7 +45,7 @@ Generated completions include the `theme` command and nested `config validate` c
 
 ## Output contract
 
-Accepted values will be emitted to standard output followed by one output-record newline. Interface rendering and terminal control sequences will use the controlling terminal instead. Textarea logical line endings are emitted as LF.
+Accepted values are emitted to standard output followed by one output-record newline. Interface rendering and terminal control sequences use the controlling terminal instead. Textarea logical line endings are emitted as LF.
 
 | Outcome         | Exit status | Standard output            |
 | --------------- | ----------: | -------------------------- |

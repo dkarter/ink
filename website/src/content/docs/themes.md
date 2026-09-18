@@ -70,6 +70,6 @@ Unknown theme names, color roles, or color values fail startup before terminal s
 
 ## Accessibility
 
-The interface design does not use color as the only signal for editing state. Every mode is also identified by a visible text label, and Insert mode uses a bar cursor while the other modes use a block cursor.
+The interface does not use color as the only signal for editing state. Every mode is also identified by a visible text label, and Insert mode uses a bar cursor while the other modes use a block cursor.
 
 Every bundled placeholder color has at least 4.5:1 contrast against its background.

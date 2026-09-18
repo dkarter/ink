@@ -12,7 +12,7 @@ title=$(ink input --value "Draft release title")
 printf '%s\n' "$title"
 ```
 
-Ink will start in Insert mode by default. The accepted text will be printed to standard output with one trailing newline. LF, CRLF, and lone CR line breaks are removed from single-line seeds and pasted text.
+Ink starts in Insert mode by default. Accepted text is printed to standard output with one trailing newline. LF, CRLF, and lone CR line breaks are removed from single-line seeds and pasted text.
 
 The input has no prefix by default. Add one with `--prompt "Name: "`.
 
@@ -43,7 +43,7 @@ When `--value` is absent, piped standard input seeds the editor:
 git log -5 --oneline | ink textarea
 ```
 
-Ink will use the controlling terminal for interaction so standard output remains clean. If a pipe and `--value` are both present, `--value` wins.
+Ink uses the controlling terminal for interaction so standard output remains clean. If a pipe and `--value` are both present, `--value` wins.
 
 ## Start in Normal mode
 

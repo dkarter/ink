@@ -14,13 +14,13 @@ const site = "https://ink.doriankarter.com";
     <meta name="viewport" content="width=device-width" />
     <meta
       name="description"
-      content="Ink is a Vim-style prompt editor for terminal workflows, currently in early development."
+      content="Ink is a Vim-style prompt editor for composable terminal workflows."
     />
     <meta name="theme-color" content="#f3eddf" />
     <meta property="og:title" content="Ink: edit before you commit." />
     <meta
       property="og:description"
-      content="A planned Vim-style prompt editor for composable terminal workflows."
+      content="Edit single-line and multiline values with Vim motions, then send clean output down the pipeline."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={`${site}/`} />
@@ -46,10 +46,10 @@ const site = "https://ink.doriankarter.com";
     </header>
 
     <main>
-      <section class="status-band" aria-label="Development status">
+      <section class="status-band" aria-label="Product summary">
         <div class="shell">
-          <strong>Build note 001</strong><span>Ink is in early development. The
-            interface below is a design target, not a released tool.</span>
+          <strong>Terminal note 001</strong><span>Vim-style editing for values
+            moving through shell pipelines.</span>
         </div>
       </section>
 
@@ -58,23 +58,23 @@ const site = "https://ink.doriankarter.com";
           <p class="eyebrow">A composable editor for terminal prompts</p>
           <h1>Edit before<br />you <em>commit.</em></h1>
           <p class="lede">
-            Ink is being designed to bring focused Vim-style editing to shell
-            scripts: one line, many lines, and no detour into a full editor.
+            Ink brings focused Vim-style editing to shell scripts: one line,
+            many lines, and no detour into a full editor.
           </p>
           <div class="actions">
-            <a class="primary" href={path("/docs/")}>Read the design notes <span
+            <a class="primary" href={path("/docs/")}>Read the docs <span
                 aria-hidden="true"
               >→</span></a>
-            <a href="https://github.com/dkarter/ink">Follow development</a>
+            <a href="https://github.com/dkarter/ink">View source</a>
           </div>
         </div>
 
         <div
           class="prompt-sheet"
-          aria-label="Planned Ink textarea interface illustration"
+          aria-label="Ink textarea interface illustration"
         >
           <div class="sheet-meta">
-            <span>PROPOSED INTERFACE</span><span>ink textarea</span>
+            <span>TEXTAREA · VISUAL MODE</span><span>ink textarea</span>
           </div>
           <div class="editor-lines" aria-hidden="true">
             <span class="number">1</span><span>Write release notes for the next
@@ -86,25 +86,25 @@ const site = "https://ink.doriankarter.com";
             <span class="number">4</span><span class="cursor-line">▌</span>
           </div>
           <div class="mode-line">
-            <b>VISUAL LINE</b><span>3:1</span><span>esc cancel · enter
+            <b>VISUAL LINE</b><span>3:1</span><span>esc normal · ctrl-d
               accept</span>
           </div>
         </div>
       </section>
 
       <section class="manifesto shell">
-        <p class="section-mark">01 / INTENT</p>
+        <p class="section-mark">01 / CONTRACT</p>
         <h2>
           A small tool for the moment between <i>thinking</i> and <i
           >sending.</i>
         </h2>
         <p>
-          Ink’s planned contract is simple: open an interactive prompt, edit
-          with familiar motions, and emit the accepted value to standard output.
+          Ink’s contract is simple: open an interactive prompt, edit with
+          familiar motions, and emit the accepted value to standard output.
         </p>
       </section>
 
-      <section class="capabilities shell" aria-label="Planned capabilities">
+      <section class="capabilities shell" aria-label="Capabilities">
         <article>
           <span>01</span><h3>One line or many</h3>
           <p>
@@ -115,15 +115,15 @@ const site = "https://ink.doriankarter.com";
         <article>
           <span>02</span><h3>Modal by design</h3>
           <p>
-            Normal, Insert, and Visual modes are planned for both prompts, with
-            line and block selections in textarea.
+            Normal, Insert, and Visual modes work in both prompts, with line and
+            block selections in textarea.
           </p>
         </article>
         <article>
           <span>03</span><h3>Unicode aware</h3>
           <p>
-            The editing model is specified around visible grapheme clusters, so
-            joined emoji and combining marks stay intact.
+            Editing follows visible grapheme clusters, so joined emoji and
+            combining marks stay intact.
           </p>
         </article>
         <article>
@@ -137,13 +137,13 @@ const site = "https://ink.doriankarter.com";
 
       <section class="notation shell">
         <div>
-          <p class="section-mark">02 / PROPOSED FLOW</p>
+          <p class="section-mark">02 / FLOW</p>
           <h2>Standard input.<br />Human judgment.<br />Standard output.</h2>
           <p>
-            The shell stays in charge. Ink is planned as the brief, deliberate
-            editing layer inside a larger workflow.
+            The shell stays in charge. Ink is the brief, deliberate editing
+            layer inside a larger workflow.
           </p>
-          <a href={path("/docs/cli/")}>Review the planned CLI →</a>
+          <a href={path("/docs/cli/")}>Explore the CLI →</a>
         </div>
         <ol>
           <li><span>IN</span><code>git diff --stat | ink textarea</code></li>
@@ -157,11 +157,11 @@ const site = "https://ink.doriankarter.com";
           <p class="section-mark">03 / COLOR STUDIES</p>
           <h2>At home in your terminal.</h2>
           <p>
-            The specification includes bundled palettes from Tokyo Night to
-            Solarized Light, plus semantic color overrides.
-          </p><a href={path("/docs/themes/")}>See planned themes →</a>
+            Ink includes bundled palettes from Tokyo Night to Solarized Light,
+            plus semantic color overrides.
+          </p><a href={path("/docs/themes/")}>Explore themes →</a>
         </div>
-        <div class="swatches" aria-label="Preview of planned theme palettes">
+        <div class="swatches" aria-label="Preview of theme palettes">
           <div class="swatch tokyo">
             <b>Tokyo
               Night</b><span></span><span></span><span></span><span></span>
@@ -178,13 +178,13 @@ const site = "https://ink.doriankarter.com";
 
       <section class="closing shell">
         <Logo size={64} />
-        <p class="section-mark">WORK IN PROGRESS</p>
-        <h2>The page is live.<br />The tool is still being written.</h2>
+        <p class="section-mark">READY WHEN YOU ARE</p>
+        <h2>Keep the shell moving.<br />Take one more pass.</h2>
         <p>
-          Read the current design contract or follow implementation on GitHub.
+          Install Ink, open a prompt, and shape the value before it moves on.
         </p>
         <div class="actions">
-          <a class="primary" href={path("/docs/")}>Open the field notes <span
+          <a class="primary" href={path("/docs/")}>Open the docs <span
               aria-hidden="true"
             >→</span></a><a href="https://github.com/dkarter/ink"
           >View source</a>
@@ -194,7 +194,7 @@ const site = "https://ink.doriankarter.com";
 
     <footer class="shell">
       <a class="brand" href={path("/")}><Logo size={28} /><strong
-        >ink</strong></a><span>Vim-style prompts, in development.</span><a
+        >ink</strong></a><span>Vim-style prompts for shell workflows.</span><a
         href="https://github.com/dkarter/ink"
       >GitHub</a>
     </footer>

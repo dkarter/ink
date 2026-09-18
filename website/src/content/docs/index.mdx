@@ -1,45 +1,41 @@
 ---
 title: Ink
-description: Design notes for a composable Vim-style terminal prompt editor.
+description: A composable Vim-style terminal prompt editor.
 template: splash
 hero:
-  tagline: A planned Vim-style editor for values that need one more pass before they enter a shell pipeline.
+  tagline: A Vim-style editor for values that need one more pass before they enter a shell pipeline.
   actions:
     - text: Read the quick start
       link: ./quick-start/
       icon: right-arrow
-    - text: Follow on GitHub
+    - text: View on GitHub
       link: https://github.com/dkarter/ink
       variant: minimal
-banner:
-  content: "Development status: Ink is a bootstrap project. Prompt editing is not implemented and there is no supported release yet."
 ---
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
-Ink is intended to add a compact interactive editing step to terminal workflows. The design reserves standard output for the accepted value while the interface talks directly to the controlling terminal.
+Ink adds a compact interactive editing step to terminal workflows. Standard output carries only the accepted value while the interface talks directly to the controlling terminal.
 
 <CardGrid>
   <Card title="Single-line input" icon="laptop">
-    The planned `ink input` command edits exactly one logical line.
+    `ink input` edits exactly one logical line.
   </Card>
   <Card title="Multiline textarea" icon="add-document">
-    The planned `ink textarea` command supports line breaks and a scrolling
-    viewport.
+    `ink textarea` supports line breaks and a scrolling viewport.
   </Card>
   <Card title="Vim-style editing" icon="setting">
-    Normal, Insert, and Visual editing are part of the specification, including
-    line and block selections.
+    Normal, Insert, and Visual editing include line and block selections.
   </Card>
   <Card title="Clean composition" icon="right-arrow">
-    On acceptance, only the edited value and a final newline are intended for
-    standard output.
+    On acceptance, standard output contains only the edited value and a final
+    newline.
   </Card>
 </CardGrid>
 
-## What exists today
+## Built for terminal workflows
 
-The repository contains a Rust command-line bootstrap and behavioral specifications. It can parse the proposed commands and generate completions, but `input` and `textarea` currently exit with a “not implemented” error. These pages describe the target contract so it can be reviewed while implementation proceeds.
+Use `ink input` for compact values and `ink textarea` for prose or structured multiline text. Seed either prompt from `--value` or a pipe, edit with familiar Vim motions, and pass the accepted result to the next command. Bundled themes, semantic color overrides, shell completions, and validated configuration keep Ink at home in existing terminal setups.
 
 ## Design principles
 
@@ -49,4 +45,4 @@ The repository contains a Rust command-line bootstrap and behavioral specificati
 - **Recoverable:** terminal state must be restored after acceptance, cancellation, errors, or caught panics.
 - **Legible:** mode names are visible as text and do not rely on color alone.
 
-Start with [installation status](./install/) or inspect the [planned CLI](./cli/).
+Start with [installation](./install/) or inspect the [CLI reference](./cli/).

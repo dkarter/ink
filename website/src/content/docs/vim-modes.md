@@ -15,11 +15,11 @@ Both prompt types support three core modes:
 
 `textarea` additionally specifies **Visual Line** for whole logical lines and **Visual Block** for rectangular selections across display columns.
 
-The active mode will always appear as a textual label such as `INSERT` or `VISUAL BLOCK`. Color is supplemental, not the only mode cue.
+The active mode appears as a textual label such as `INSERT` or `VISUAL BLOCK`. Color is supplemental, not the only mode cue.
 
 ## Selections and operators
 
-The design includes delete, change, and yank over active selections:
+Ink supports delete, change, and yank over active selections:
 
 - Delete removes selected graphemes, writes them to the unnamed register, and returns to Normal mode.
 - Change follows the same deletion rules and enters Insert mode at the start of the removed range.
@@ -28,7 +28,7 @@ The design includes delete, change, and yank over active selections:
 
 ## Unicode text
 
-Movement and editing are specified in extended grapheme clusters rather than bytes or Unicode scalar values. A visible character made from a base character plus combining marks, or a joined emoji sequence, should move and edit as one unit.
+Movement and editing operate on extended grapheme clusters rather than bytes or Unicode scalar values. A base character with combining marks, or a joined emoji sequence, moves and edits as one unit.
 
 ## Viewports
 

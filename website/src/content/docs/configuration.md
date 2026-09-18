@@ -10,7 +10,7 @@ Ink looks for one user configuration file:
 1. `$XDG_CONFIG_HOME/ink/config.toml` when `XDG_CONFIG_HOME` is a non-empty absolute path
 2. `$HOME/.config/ink/config.toml` when `XDG_CONFIG_HOME` is unset, empty, or relative
 
-When the XDG path is active, Ink will not also read the home fallback.
+When the XDG path is active, Ink does not also read the home fallback.
 
 ## Precedence
 
@@ -20,7 +20,7 @@ Settings resolve in this order, from lowest to highest priority:
 2. User configuration
 3. Explicit command-line options
 
-For example, `--theme nord` will override a theme selected in `config.toml`.
+For example, `--theme nord` overrides a theme selected in `config.toml`.
 
 ## Settings
 
