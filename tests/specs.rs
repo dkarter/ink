@@ -35,4 +35,5 @@ mod specs {
     mod terminal_io;
     mod themes;
     mod vim_editing;
+    mod website;
 }

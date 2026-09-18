@@ -4,6 +4,7 @@ import "../styles/site.css";
 
 const base = `${import.meta.env.BASE_URL.replace(/[/]$/, "")}/`;
 const path = (value: string) => `${base}${value.replace(/^[/]/, "")}`;
+const site = "https://ink.doriankarter.com";
 ---
 
 <!DOCTYPE html>
@@ -22,13 +23,13 @@ const path = (value: string) => `${base}${value.replace(/^[/]/, "")}`;
       content="A planned Vim-style prompt editor for composable terminal workflows."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://dkarter.github.io/ink/" />
+    <meta property="og:url" content={`${site}/`} />
     <meta
       property="og:image"
-      content="https://dkarter.github.io/ink/og-image.svg"
+      content={`${site}/og-image.svg`}
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="canonical" href="https://dkarter.github.io/ink/" />
+    <link rel="canonical" href={`${site}/`} />
     <link rel="icon" href={path("/favicon.svg")} />
     <title>Ink: edit before you commit.</title>
   </head>

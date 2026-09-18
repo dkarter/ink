@@ -1,8 +1,9 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 
-const site = "https://dkarter.github.io";
-const base = process.env.INK_SITE_BASE || "/ink";
+const site = "https://ink.doriankarter.com";
+const base = process.env.INK_SITE_BASE || "/";
+const publicBase = base === "/" ? "" : base.replace(/\/$/, "");
 
 export default defineConfig({
   site,
@@ -14,9 +15,15 @@ export default defineConfig({
       description: "A planned Vim-style prompt editor for the terminal.",
       favicon: "/favicon.svg",
       head: [
-        { tag: "meta", attrs: { property: "og:image", content: `${site}${base}/og-image.svg` } },
+        {
+          tag: "meta",
+          attrs: { property: "og:image", content: `${site}${publicBase}/og-image.svg` },
+        },
         { tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
-        { tag: "meta", attrs: { name: "twitter:image", content: `${site}${base}/og-image.svg` } },
+        {
+          tag: "meta",
+          attrs: { name: "twitter:image", content: `${site}${publicBase}/og-image.svg` },
+        },
       ],
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/dkarter/ink" }],
       customCss: ["./src/styles/starlight.css"],
