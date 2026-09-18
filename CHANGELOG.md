@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/dkarter/ink/compare/v0.2.1...v0.3.0) (2026-09-18)
+
+
+### Features
+
+* **prompt:** improve inline status workflows ([726fea2](https://github.com/dkarter/ink/commit/726fea256988de8c226384fb129a6e43dfbdda6c))
+
+
+### Bug Fixes
+
+* **release:** authenticate draft recovery ([967791f](https://github.com/dkarter/ink/commit/967791f412848bc19d8c4cab924912640a1ef641))
+* **website:** serve assets from custom domain root ([ef58f2a](https://github.com/dkarter/ink/commit/ef58f2a2b24e4a6ef9b62a81cb707006a3c74232))
+
 ## [0.2.1](https://github.com/dkarter/ink/compare/v0.2.0...v0.2.1) (2026-09-18)
 
 
