@@ -682,6 +682,43 @@ fn edit_019_confirm_submission_before_quitting() {
     }
 }
 
+#[test]
+fn edit_020_append_at_the_end_of_a_line() {
+    let mut editor = Editor::input("e\u{301}").expect("input fixture");
+    assert!(editor.append_at_line_end());
+    assert_eq!(editor.mode(), Mode::Insert);
+    assert_eq!(editor.cursor(), Position::new(0, 1));
+    assert!(!editor.append_at_line_end());
+    editor.escape();
+    assert_eq!(editor.cursor(), Position::new(0, 0));
+    assert!(editor.append_at_line_end());
+    editor.insert("👩‍💻");
+    editor.escape();
+    assert_eq!(editor.text(), "e\u{301}👩‍💻");
+    assert_eq!(editor.cursor(), Position::new(0, 1));
+
+    for (kind, value, keys, expected) in [
+        ("input", "onee\u{301}", "A👩‍💻\u{1b}\u{4}", "onee\u{301}👩‍💻\n"),
+        (
+            "textarea",
+            "onee\u{301}\ntwo",
+            "A!\u{1b}\u{4}",
+            "onee\u{301}!\ntwo\n",
+        ),
+        ("input", "", "A!\u{1b}\u{4}", "!\n"),
+        ("textarea", "\ntwo", "A!\u{1b}\u{4}", "!\ntwo\n"),
+        ("textarea", "one\n", "jA!\u{1b}\u{4}", "one\n!\n"),
+        ("textarea", "one\n\ntwo", "jA!\u{1b}\u{4}", "one\n!\ntwo\n"),
+    ] {
+        let result = super::command_line::prompt(
+            &format!("exec {{ink}} {kind} --normal --value '{}'", value),
+            keys.as_bytes(),
+        );
+        assert_eq!(result.status, 0, "{kind} {value:?}");
+        assert_eq!(result.stdout, expected.as_bytes(), "{kind} {value:?}");
+    }
+}
+
 fn contains_in_order(haystack: &[u8], needle: &[u8]) -> bool {
     let mut remaining = needle;
     for byte in haystack {

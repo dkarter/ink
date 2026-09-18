@@ -16,6 +16,14 @@ Ink SHALL support Normal, Insert, and Visual modes in both prompts, plus Visual 
 - WHEN the user enters Insert mode, inserts text, and presses Escape
 - THEN the text is inserted and the prompt returns to Normal mode on a valid grapheme
 
+#### Scenario: Append at the end of a line {#EDIT-020}
+
+- GIVEN input or textarea is in Normal mode on a non-empty or empty logical line
+- WHEN the user invokes `A` and inserts text
+- THEN Ink enters Insert mode at the line-end insertion point, after the final grapheme when the line is non-empty
+- AND inserted text is appended without changing adjacent lines or splitting Unicode graphemes
+- AND Escape returns to Normal mode on the final inserted grapheme, or the prior final grapheme when nothing was inserted
+
 #### Scenario: Select characters visually {#EDIT-002}
 
 - GIVEN a prompt in Normal mode on a non-empty buffer

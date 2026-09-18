@@ -406,6 +406,16 @@ impl Editor {
         true
     }
 
+    pub fn append_at_line_end(&mut self) -> bool {
+        if self.mode != Mode::Normal {
+            return false;
+        }
+        self.move_to_line_end();
+        self.enter_insert();
+        self.move_to_line_end();
+        true
+    }
+
     pub fn yank_selection(&mut self) -> bool {
         if !self.is_visual() {
             return false;

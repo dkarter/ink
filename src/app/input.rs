@@ -57,6 +57,9 @@ pub(super) fn handle_key(
             KeyCode::Char('q') => return Some(PromptOutcome::Cancelled(CancelReason::NormalQuit)),
             KeyCode::Enter => return Some(PromptOutcome::Accepted(editor.text().to_owned())),
             KeyCode::Char('i') => editor.enter_insert(),
+            KeyCode::Char('A') => {
+                editor.append_at_line_end();
+            }
             KeyCode::Char('v') => editor.enter_visual(),
             KeyCode::Char('V') => editor.enter_visual_line(),
             KeyCode::Char('d') => *pending = Some(Pending::Operator(Operator::Delete)),
