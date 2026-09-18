@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/dkarter/ink/compare/v0.3.0...v0.4.0) (2026-09-18)
+
+
+### Features
+
+* **textarea:** add configurable line numbers ([a10f3ff](https://github.com/dkarter/ink/commit/a10f3ff312240129bfcd14f6d9c0c85be1e10c28))
+* **vim:** add undo and redo history ([b86be1b](https://github.com/dkarter/ink/commit/b86be1b93a345a1b5eaa2d204fbeb809c428aeb6))
+* **vim:** append after cursor ([d8bb3b6](https://github.com/dkarter/ink/commit/d8bb3b61d484207e38f39ea3c7904aa61f4611a3))
+* **vim:** repeat visual block changes ([4a350cc](https://github.com/dkarter/ink/commit/4a350cc0fa6054e7f9b5b711d203640bf0c546c8))
+* **vim:** support append at line end ([2c2761d](https://github.com/dkarter/ink/commit/2c2761d35af0ecf49410ef9d82c94960c650faa3))
+
 ## [0.3.0](https://github.com/dkarter/ink/compare/v0.2.1...v0.3.0) (2026-09-18)
 
 
