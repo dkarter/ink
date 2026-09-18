@@ -13,6 +13,18 @@ impl Editor {
             return self.apply_visual_line_operator(next_mode);
         }
         let ranges = self.selection_ranges();
+        let block_offsets =
+            (self.mode == Mode::VisualBlock && next_mode == Mode::Insert).then(|| {
+                let mut removed = 0;
+                ranges
+                    .iter()
+                    .map(|range| {
+                        let offset = range.start - removed;
+                        removed += range.len();
+                        offset
+                    })
+                    .collect::<Vec<_>>()
+            });
         let start = ranges.first().map_or(0, |range| range.start);
         self.unnamed_register = Register {
             text: self.text_for_ranges(&ranges),
@@ -22,6 +34,14 @@ impl Editor {
             self.text.replace_range(range, "");
         }
         self.finish_operator(start, next_mode);
+        if let Some(mut offsets) = block_offsets {
+            let origin = offsets.remove(0);
+            self.block_insert = Some(super::BlockInsert {
+                origin,
+                targets: offsets,
+                text: String::new(),
+            });
+        }
         true
     }
 

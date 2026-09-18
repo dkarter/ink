@@ -15,7 +15,10 @@ pub(super) fn handle_key(
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         return match key.code {
             KeyCode::Char('c') => Some(PromptOutcome::Cancelled(CancelReason::Interrupt)),
-            KeyCode::Char('d') => Some(PromptOutcome::Accepted(editor.text().to_owned())),
+            KeyCode::Char('d') => {
+                editor.escape();
+                Some(PromptOutcome::Accepted(editor.text().to_owned()))
+            }
             KeyCode::Char('v') if editor.mode() == Mode::Normal => {
                 editor.enter_visual_block();
                 None

@@ -84,12 +84,20 @@ pub struct Editor {
     preferred_display_column: Option<usize>,
     insert_origin: Option<Position>,
     insert_advanced: bool,
+    block_insert: Option<BlockInsert>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct Register {
     text: String,
     linewise: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct BlockInsert {
+    origin: usize,
+    targets: Vec<usize>,
+    text: String,
 }
 
 impl Editor {
@@ -123,6 +131,7 @@ impl Editor {
             preferred_display_column: None,
             insert_origin: None,
             insert_advanced: false,
+            block_insert: None,
         };
         editor.cursor = editor.normalized_position(editor.cursor);
         editor
@@ -149,6 +158,7 @@ impl Editor {
     }
 
     pub fn set_cursor(&mut self, position: Position) {
+        self.block_insert = None;
         self.cursor = match self.mode {
             Mode::Normal => self.normalized_position(position),
             Mode::Insert => self.clamp_position(position, true),
@@ -193,6 +203,13 @@ impl Editor {
             self.cursor.column -= 1;
         }
         let byte = self.position_to_byte(self.cursor, was_insert);
+        if let Some(block) = self.block_insert.take()
+            && !block.text.is_empty()
+        {
+            for target in block.targets.into_iter().rev() {
+                self.text.insert_str(target + block.text.len(), &block.text);
+            }
+        }
         self.clear_selection(Mode::Normal);
         self.cursor = self.normal_position_from_byte(byte);
     }
@@ -211,6 +228,20 @@ impl Editor {
         } else {
             std::borrow::Cow::Borrowed(value)
         };
+        if let Some(block) = self.block_insert.as_ref() {
+            let continues_block = !value.contains('\n')
+                && block.origin <= byte
+                && self.text.get(block.origin..byte) == Some(block.text.as_str());
+            if continues_block {
+                self.block_insert
+                    .as_mut()
+                    .expect("block insertion is active")
+                    .text
+                    .push_str(&value);
+            } else {
+                self.block_insert = None;
+            }
+        }
         self.text.insert_str(byte, &value);
         self.cursor = self.position_from_byte(byte + value.len());
         self.insert_advanced |= self.cursor != previous_cursor;
@@ -219,11 +250,13 @@ impl Editor {
     }
 
     pub fn move_left(&mut self) {
+        self.block_insert = None;
         self.cursor.column = self.cursor.column.saturating_sub(1);
         self.preferred_display_column = None;
     }
 
     pub fn move_right(&mut self) {
+        self.block_insert = None;
         let length = self.line_grapheme_count(self.cursor.line);
         let maximum = if self.mode == Mode::Insert {
             length
@@ -235,19 +268,23 @@ impl Editor {
     }
 
     pub fn move_up(&mut self) {
+        self.block_insert = None;
         self.move_vertical(-1);
     }
 
     pub fn move_down(&mut self) {
+        self.block_insert = None;
         self.move_vertical(1);
     }
 
     pub fn move_to_line_start(&mut self) {
+        self.block_insert = None;
         self.cursor.column = 0;
         self.preferred_display_column = None;
     }
 
     pub fn move_to_line_end(&mut self) {
+        self.block_insert = None;
         let length = self.line_grapheme_count(self.cursor.line);
         self.cursor.column = if self.mode == Mode::Insert {
             length
@@ -258,26 +295,32 @@ impl Editor {
     }
 
     pub fn move_word_forward(&mut self) {
+        self.block_insert = None;
         self.move_word(true, false);
     }
 
     pub fn move_word_backward(&mut self) {
+        self.block_insert = None;
         self.move_word(false, false);
     }
 
     pub fn move_big_word_forward(&mut self) {
+        self.block_insert = None;
         self.move_word(true, true);
     }
 
     pub fn move_big_word_backward(&mut self) {
+        self.block_insert = None;
         self.move_word(false, true);
     }
 
     pub fn move_word_end(&mut self) {
+        self.block_insert = None;
         self.move_word_end_with(false);
     }
 
     pub fn move_big_word_end(&mut self) {
+        self.block_insert = None;
         self.move_word_end_with(true);
     }
 
@@ -464,6 +507,20 @@ impl Editor {
         }
         let end = self.position_to_byte(self.cursor, true);
         let start = self.previous_grapheme_boundary(end);
+        if let Some(block) = self.block_insert.as_ref() {
+            let continues_block = block.origin <= start
+                && self.text.get(block.origin..end) == Some(block.text.as_str());
+            if continues_block {
+                let replacement_length = start - block.origin;
+                self.block_insert
+                    .as_mut()
+                    .expect("block insertion is active")
+                    .text
+                    .truncate(replacement_length);
+            } else {
+                self.block_insert = None;
+            }
+        }
         self.text.replace_range(start..end, "");
         self.cursor = self.position_from_byte(start);
         self.preferred_display_column = None;
@@ -479,6 +536,7 @@ impl Editor {
     }
 
     fn clear_selection(&mut self, mode: Mode) {
+        self.block_insert = None;
         self.mode = mode;
         self.anchor = None;
         if mode != Mode::Insert {

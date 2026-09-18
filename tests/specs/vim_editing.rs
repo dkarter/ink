@@ -162,6 +162,55 @@ fn edit_008_block_operators_preserve_rows() {
 }
 
 #[test]
+fn edit_021_change_text_across_a_visual_block() {
+    let mut editor = block_editor();
+    assert!(editor.change_selection());
+    assert!(editor.insert("界x"));
+    assert!(editor.backspace());
+    assert!(editor.insert("e\u{301}"));
+    editor.escape();
+
+    assert_eq!(editor.text(), "a界e\u{301}d\nx界e\u{301}\np界e\u{301}s");
+    assert_eq!(editor.mode(), Mode::Normal);
+    assert_eq!(editor.cursor(), Position::new(0, 2));
+
+    let mut reversed = Editor::textarea("abcd\nx\npqrs");
+    reversed.set_cursor(Position::new(2, 2));
+    reversed.enter_visual_block();
+    reversed.move_up();
+    reversed.move_up();
+    reversed.move_left();
+    assert!(reversed.change_selection());
+    assert!(reversed.insert("R"));
+    reversed.escape();
+    assert_eq!(reversed.text(), "aRd\nxR\npRs");
+
+    let mut moved = block_editor();
+    assert!(moved.change_selection());
+    assert!(moved.insert("Q"));
+    moved.move_left();
+    moved.escape();
+    assert_eq!(moved.text(), "aQd\nx\nps");
+
+    let result = super::command_line::prompt_with_delayed_keys(
+        "exec {ink} textarea --normal --value 'abcd\nx\npqrs'",
+        "\u{16}jjlcXY\u{1b}".as_bytes(),
+        std::time::Duration::from_millis(50),
+        b"\x04",
+        None,
+    );
+    assert_eq!(result.status, 0);
+    assert_eq!(result.stdout, b"XYcd\nXY\nXYrs\n");
+
+    let accepted = super::command_line::prompt(
+        "exec {ink} textarea --normal --value 'abcd\nx\npqrs'",
+        "\u{16}jjlcZ\u{4}".as_bytes(),
+    );
+    assert_eq!(accepted.status, 0);
+    assert_eq!(accepted.stdout, b"Zcd\nZ\nZrs\n");
+}
+
+#[test]
 fn edit_009_treat_joined_unicode_as_one_character() {
     let family = "👨‍👩‍👧‍👦";
     let mut editor = Editor::input(format!("Ae\u{301}{family}Z")).expect("single-line fixture");

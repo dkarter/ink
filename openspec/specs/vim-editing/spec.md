@@ -97,6 +97,15 @@ Ink SHALL apply delete, change, and yank to the active selection and then clear 
 - WHEN delete, change, or yank is invoked
 - THEN the operator processes each row independently in top-to-bottom order and does not add or remove unselected line breaks
 
+#### Scenario: Change text across a visual block {#EDIT-021}
+
+- GIVEN a Visual Block selection spans multiple textarea lines
+- WHEN the user invokes change, enters replacement text on the first selected line, and returns to Normal mode
+- THEN Ink inserts the same replacement at the start of every selected row
+- AND backspace within the replacement updates the text applied to every row
+- AND replacement text preserves Unicode grapheme clusters and lines shorter than the selected column
+- AND accepting directly from Insert mode finalizes the replacement before emitting the value
+
 ### Requirement: Edit visible characters atomically
 
 Ink SHALL move, select, delete, change, and yank by extended grapheme cluster rather than Unicode scalar value or byte.
