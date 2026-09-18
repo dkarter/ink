@@ -211,6 +211,99 @@ fn edit_021_change_text_across_a_visual_block() {
 }
 
 #[test]
+fn edit_022_traverse_editing_history() {
+    let mut editor = Editor::input("abc").expect("input fixture");
+    assert!(!editor.undo());
+    assert!(!editor.redo());
+
+    editor.enter_insert();
+    assert!(editor.insert("Xe\u{301}"));
+    assert!(editor.insert("👩‍💻"));
+    editor.escape();
+    assert_eq!(editor.text(), "Xe\u{301}👩‍💻abc");
+
+    assert!(editor.delete_at_cursor());
+    assert_eq!(editor.text(), "Xe\u{301}abc");
+    assert!(editor.undo());
+    assert_eq!(editor.text(), "Xe\u{301}👩‍💻abc");
+    assert!(editor.undo());
+    assert_eq!(editor.text(), "abc");
+    assert_eq!(editor.cursor(), Position::new(0, 0));
+    assert!(editor.redo());
+    assert_eq!(editor.text(), "Xe\u{301}👩‍💻abc");
+    assert!(editor.redo());
+    assert_eq!(editor.text(), "Xe\u{301}abc");
+
+    assert!(editor.undo());
+    assert!(editor.delete_at_cursor());
+    assert_eq!(editor.text(), "Xe\u{301}abc");
+    assert!(!editor.redo());
+
+    let mut operator = Editor::input("one two").expect("input fixture");
+    assert!(operator.delete_motion(Motion::WordForward));
+    assert_eq!(operator.text(), "two");
+    assert!(operator.undo());
+    assert_eq!(operator.text(), "one two");
+    assert!(operator.redo());
+    assert_eq!(operator.text(), "two");
+
+    let mut block = block_editor();
+    assert!(block.change_selection());
+    assert!(block.insert("R"));
+    block.escape();
+    assert_eq!(block.text(), "aRd\nxR\npRs");
+    assert!(block.undo());
+    assert_eq!(block.text(), "abcd\nx\npqrs");
+    assert!(block.redo());
+    assert_eq!(block.text(), "aRd\nxR\npRs");
+
+    let mut append = Editor::input("abc").expect("input fixture");
+    assert!(append.append_at_line_end());
+    assert!(append.insert("z"));
+    append.escape();
+    append.move_left();
+    assert!(append.undo());
+    assert_eq!(append.text(), "abc");
+    assert_eq!(append.cursor(), Position::new(0, 0));
+    assert!(append.redo());
+    assert_eq!(append.text(), "abcz");
+    assert_eq!(append.cursor(), Position::new(0, 3));
+
+    let mut no_op = Editor::input("a").expect("input fixture");
+    no_op.enter_insert();
+    assert!(no_op.insert("X"));
+    no_op.escape();
+    assert!(no_op.undo());
+    no_op.enter_insert();
+    assert!(no_op.insert("Y"));
+    assert!(no_op.backspace());
+    no_op.escape();
+    assert!(no_op.redo());
+    assert_eq!(no_op.text(), "Xa");
+
+    let mut bounded = Editor::empty_input();
+    for _ in 0..=100 {
+        bounded.enter_insert();
+        assert!(bounded.insert("x"));
+        bounded.escape();
+    }
+    for _ in 0..100 {
+        assert!(bounded.undo());
+    }
+    assert!(!bounded.undo());
+
+    let result = super::command_line::prompt_with_delayed_keys(
+        "exec {ink} input --normal --value 'abc'",
+        b"iXY\x1b",
+        std::time::Duration::from_millis(50),
+        b"ur\x04",
+        None,
+    );
+    assert_eq!(result.status, 0);
+    assert_eq!(result.stdout, b"XYabc\n");
+}
+
+#[test]
 fn edit_009_treat_joined_unicode_as_one_character() {
     let family = "👨‍👩‍👧‍👦";
     let mut editor = Editor::input(format!("Ae\u{301}{family}Z")).expect("single-line fixture");

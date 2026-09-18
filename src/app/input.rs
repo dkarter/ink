@@ -63,6 +63,12 @@ pub(super) fn handle_key(
             KeyCode::Char('A') => {
                 editor.append_at_line_end();
             }
+            KeyCode::Char('u') => {
+                editor.undo();
+            }
+            KeyCode::Char('r') => {
+                editor.redo();
+            }
             KeyCode::Char('v') => editor.enter_visual(),
             KeyCode::Char('V') => editor.enter_visual_line(),
             KeyCode::Char('d') => *pending = Some(Pending::Operator(Operator::Delete)),

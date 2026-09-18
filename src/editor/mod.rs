@@ -6,10 +6,12 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{display::grapheme_width_at, text};
 
+mod history;
 mod motion;
 mod operator;
 mod selection;
 
+use history::History;
 use motion::{WordClass, word_class};
 
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
@@ -85,6 +87,7 @@ pub struct Editor {
     insert_origin: Option<Position>,
     insert_advanced: bool,
     block_insert: Option<BlockInsert>,
+    history: Box<History>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -132,6 +135,7 @@ impl Editor {
             insert_origin: None,
             insert_advanced: false,
             block_insert: None,
+            history: Box::default(),
         };
         editor.cursor = editor.normalized_position(editor.cursor);
         editor
@@ -170,6 +174,7 @@ impl Editor {
     }
 
     pub fn enter_insert(&mut self) {
+        self.begin_change();
         self.clear_selection(Mode::Insert);
         self.insert_origin = Some(self.cursor);
         self.insert_advanced = false;
@@ -212,6 +217,7 @@ impl Editor {
         }
         self.clear_selection(Mode::Normal);
         self.cursor = self.normal_position_from_byte(byte);
+        self.commit_change();
     }
 
     pub fn insert(&mut self, value: &str) -> bool {
@@ -228,6 +234,10 @@ impl Editor {
         } else {
             std::borrow::Cow::Borrowed(value)
         };
+        if value.is_empty() {
+            return true;
+        }
+        self.begin_change();
         if let Some(block) = self.block_insert.as_ref() {
             let continues_block = !value.contains('\n')
                 && block.origin <= byte
@@ -376,6 +386,7 @@ impl Editor {
         if !self.can_apply_linewise() {
             return false;
         }
+        self.begin_change();
         let line = self.cursor.line;
         self.unnamed_register = Register {
             text: self.linewise_text(line, line),
@@ -386,6 +397,7 @@ impl Editor {
         self.text.replace_range(range, "");
         self.cursor = self.normal_position_from_byte(cursor.min(self.text.len()));
         self.preferred_display_column = None;
+        self.commit_change();
         true
     }
 
@@ -393,6 +405,7 @@ impl Editor {
         if !self.can_apply_linewise() {
             return false;
         }
+        self.begin_change();
         let (start, end) = self.line_bounds(self.cursor.line);
         self.unnamed_register = Register {
             text: self.linewise_text(self.cursor.line, self.cursor.line),
@@ -431,6 +444,7 @@ impl Editor {
         if self.mode != Mode::Normal || self.kind != BufferKind::Textarea {
             return false;
         }
+        self.begin_change();
         let insertion = self.line_bounds(self.cursor.line).1;
         self.text.insert(insertion, '\n');
         self.cursor = self.position_from_byte(insertion + 1);
@@ -442,6 +456,7 @@ impl Editor {
         if self.mode != Mode::Normal || self.kind != BufferKind::Textarea {
             return false;
         }
+        self.begin_change();
         let insertion = self.line_bounds(self.cursor.line).0;
         self.text.insert(insertion, '\n');
         self.cursor = self.position_from_byte(insertion);
@@ -453,6 +468,7 @@ impl Editor {
         if self.mode != Mode::Normal {
             return false;
         }
+        self.begin_change();
         self.move_to_line_end();
         self.enter_insert();
         self.move_to_line_end();
@@ -491,14 +507,7 @@ impl Editor {
         if start == end || self.text[start..end].contains('\n') {
             return false;
         }
-        self.unnamed_register = Register {
-            text: self.text[start..end].to_owned(),
-            linewise: false,
-        };
-        self.text.replace_range(start..end, "");
-        self.cursor = self.normal_position_from_byte(start);
-        self.preferred_display_column = None;
-        true
+        self.apply_range(start..end, Mode::Normal)
     }
 
     pub fn backspace(&mut self) -> bool {
@@ -507,6 +516,7 @@ impl Editor {
         }
         let end = self.position_to_byte(self.cursor, true);
         let start = self.previous_grapheme_boundary(end);
+        self.begin_change();
         if let Some(block) = self.block_insert.as_ref() {
             let continues_block = block.origin <= start
                 && self.text.get(block.origin..end) == Some(block.text.as_str());

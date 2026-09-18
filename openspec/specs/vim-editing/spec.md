@@ -106,6 +106,19 @@ Ink SHALL apply delete, change, and yank to the active selection and then clear 
 - AND replacement text preserves Unicode grapheme clusters and lines shorter than the selected column
 - AND accepting directly from Insert mode finalizes the replacement before emitting the value
 
+### Requirement: Undo and redo edits
+
+Ink SHALL provide bounded text-change history through `u` for undo and `r` for redo in Normal mode.
+
+#### Scenario: Traverse editing history {#EDIT-022}
+
+- GIVEN input or textarea has completed text-changing actions
+- WHEN the user invokes `u` or `r` in Normal mode
+- THEN `u` restores the text and cursor from the preceding action and `r` restores the most recently undone action
+- AND an Insert session, operator change, or Visual Block replacement is one history action
+- AND a new text change after undo clears the redo history
+- AND unavailable undo or redo commands leave the buffer unchanged
+
 ### Requirement: Edit visible characters atomically
 
 Ink SHALL move, select, delete, change, and yank by extended grapheme cluster rather than Unicode scalar value or byte.

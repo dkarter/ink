@@ -9,6 +9,7 @@ impl Editor {
         if !self.is_visual() {
             return false;
         }
+        self.begin_change();
         if self.mode == Mode::VisualLine {
             return self.apply_visual_line_operator(next_mode);
         }
@@ -42,13 +43,18 @@ impl Editor {
                 text: String::new(),
             });
         }
+        if next_mode == Mode::Normal {
+            self.commit_change();
+        }
         true
     }
 
     pub(super) fn apply_motion(&mut self, motion: Motion, next_mode: Mode) -> bool {
+        let cursor = self.cursor;
         let Some(range) = self.motion_range(motion) else {
             return false;
         };
+        self.cursor = cursor;
         self.apply_range(range, next_mode)
     }
 
@@ -126,6 +132,7 @@ impl Editor {
         if range.is_empty() {
             return false;
         }
+        self.begin_change();
         let start = range.start;
         self.unnamed_register = Register {
             text: self.text[range.clone()].to_owned(),
@@ -133,6 +140,9 @@ impl Editor {
         };
         self.text.replace_range(range, "");
         self.finish_operator(start, next_mode);
+        if next_mode == Mode::Normal {
+            self.commit_change();
+        }
         true
     }
 
@@ -207,6 +217,9 @@ impl Editor {
             }
         }
         self.finish_operator(cursor, next_mode);
+        if next_mode == Mode::Normal {
+            self.commit_change();
+        }
         true
     }
 
@@ -214,6 +227,7 @@ impl Editor {
         if self.mode != Mode::Normal || self.unnamed_register.text.is_empty() {
             return false;
         }
+        self.begin_change();
         let register = self.unnamed_register.clone();
         if register.linewise && self.kind == BufferKind::Textarea {
             let content = register.text.strip_suffix('\n').unwrap_or(&register.text);
@@ -237,6 +251,7 @@ impl Editor {
             self.cursor = self.normal_position_from_byte(self.previous_grapheme_boundary(end));
         }
         self.preferred_display_column = None;
+        self.commit_change();
         true
     }
 
