@@ -75,6 +75,7 @@ fn rel_003_unfinished_draft_resumes_automatically() {
     let workflow = release_workflow();
 
     assert!(workflow.contains("- name: Resolve new or unfinished release"));
+    assert!(workflow.contains("GH_TOKEN: ${{ steps.release_app_token.outputs.token }}"));
     assert!(workflow.contains("jq -r '.[\".\"]' .release-please-manifest.json"));
     assert!(workflow.contains("gh release view \"${tag_name}\" --json isDraft,targetCommitish"));
     assert!(

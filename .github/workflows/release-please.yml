@@ -72,7 +72,7 @@ jobs:
           ACTION_RELEASE_SHA: ${{ steps.release.outputs.sha }}
           ACTION_TAG_NAME: ${{ steps.release.outputs.tag_name }}
           ACTION_VERSION: ${{ steps.release.outputs.version }}
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.release_app_token.outputs.token }}
         run: |
           set -euo pipefail
           if [[ "${ACTION_RELEASE_CREATED}" == "true" ]]; then
