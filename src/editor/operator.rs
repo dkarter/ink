@@ -290,7 +290,7 @@ impl Editor {
             self.normal_position_from_byte(start.min(self.text.len()))
         };
         self.insert_origin = (next_mode == Mode::Insert).then_some(self.cursor);
-        self.insert_advanced = false;
+        self.insert_backstep = false;
         self.preferred_display_column = None;
     }
 }

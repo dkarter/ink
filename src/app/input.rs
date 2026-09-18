@@ -60,6 +60,9 @@ pub(super) fn handle_key(
             KeyCode::Char('q') => return Some(PromptOutcome::Cancelled(CancelReason::NormalQuit)),
             KeyCode::Enter => return Some(PromptOutcome::Accepted(editor.text().to_owned())),
             KeyCode::Char('i') => editor.enter_insert(),
+            KeyCode::Char('a') => {
+                editor.append_after_cursor();
+            }
             KeyCode::Char('A') => {
                 editor.append_at_line_end();
             }

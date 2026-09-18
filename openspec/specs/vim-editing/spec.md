@@ -24,6 +24,14 @@ Ink SHALL support Normal, Insert, and Visual modes in both prompts, plus Visual 
 - AND inserted text is appended without changing adjacent lines or splitting Unicode graphemes
 - AND Escape returns to Normal mode on the final inserted grapheme, or the prior final grapheme when nothing was inserted
 
+#### Scenario: Append after the cursor {#EDIT-023}
+
+- GIVEN input or textarea is in Normal mode on a grapheme or an empty logical line
+- WHEN the user invokes `a` and inserts text
+- THEN Ink enters Insert mode immediately after the cursor grapheme, or at column zero on an empty line
+- AND inserted text preserves adjacent Unicode graphemes and remains one undoable Insert action
+- AND Escape returns to Normal mode on the final inserted grapheme, or the original grapheme when nothing was inserted
+
 #### Scenario: Select characters visually {#EDIT-002}
 
 - GIVEN a prompt in Normal mode on a non-empty buffer

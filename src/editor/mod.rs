@@ -85,7 +85,7 @@ pub struct Editor {
     kind: BufferKind,
     preferred_display_column: Option<usize>,
     insert_origin: Option<Position>,
-    insert_advanced: bool,
+    insert_backstep: bool,
     block_insert: Option<BlockInsert>,
     history: Box<History>,
 }
@@ -133,7 +133,7 @@ impl Editor {
             kind,
             preferred_display_column: None,
             insert_origin: None,
-            insert_advanced: false,
+            insert_backstep: false,
             block_insert: None,
             history: Box::default(),
         };
@@ -162,7 +162,7 @@ impl Editor {
     }
 
     pub fn set_cursor(&mut self, position: Position) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.cursor = match self.mode {
             Mode::Normal => self.normalized_position(position),
             Mode::Insert => self.clamp_position(position, true),
@@ -177,7 +177,7 @@ impl Editor {
         self.begin_change();
         self.clear_selection(Mode::Insert);
         self.insert_origin = Some(self.cursor);
-        self.insert_advanced = false;
+        self.insert_backstep = false;
     }
 
     pub fn enter_visual(&mut self) {
@@ -198,13 +198,7 @@ impl Editor {
 
     pub fn escape(&mut self) {
         let was_insert = self.mode == Mode::Insert;
-        if was_insert
-            && self.insert_advanced
-            && self.cursor.column > 0
-            && self
-                .insert_origin
-                .is_some_and(|origin| origin != self.cursor)
-        {
+        if was_insert && self.insert_backstep && self.cursor.column > 0 {
             self.cursor.column -= 1;
         }
         let byte = self.position_to_byte(self.cursor, was_insert);
@@ -254,19 +248,19 @@ impl Editor {
         }
         self.text.insert_str(byte, &value);
         self.cursor = self.position_from_byte(byte + value.len());
-        self.insert_advanced |= self.cursor != previous_cursor;
+        self.insert_backstep = self.cursor != previous_cursor;
         self.preferred_display_column = None;
         true
     }
 
     pub fn move_left(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.cursor.column = self.cursor.column.saturating_sub(1);
         self.preferred_display_column = None;
     }
 
     pub fn move_right(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         let length = self.line_grapheme_count(self.cursor.line);
         let maximum = if self.mode == Mode::Insert {
             length
@@ -278,23 +272,23 @@ impl Editor {
     }
 
     pub fn move_up(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_vertical(-1);
     }
 
     pub fn move_down(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_vertical(1);
     }
 
     pub fn move_to_line_start(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.cursor.column = 0;
         self.preferred_display_column = None;
     }
 
     pub fn move_to_line_end(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         let length = self.line_grapheme_count(self.cursor.line);
         self.cursor.column = if self.mode == Mode::Insert {
             length
@@ -305,32 +299,32 @@ impl Editor {
     }
 
     pub fn move_word_forward(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_word(true, false);
     }
 
     pub fn move_word_backward(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_word(false, false);
     }
 
     pub fn move_big_word_forward(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_word(true, true);
     }
 
     pub fn move_big_word_backward(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_word(false, true);
     }
 
     pub fn move_word_end(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_word_end_with(false);
     }
 
     pub fn move_big_word_end(&mut self) {
-        self.block_insert = None;
+        self.prepare_cursor_move();
         self.move_word_end_with(true);
     }
 
@@ -415,7 +409,7 @@ impl Editor {
         self.clear_selection(Mode::Insert);
         self.cursor = self.position_from_byte(start);
         self.insert_origin = Some(self.cursor);
-        self.insert_advanced = false;
+        self.insert_backstep = false;
         self.preferred_display_column = None;
         true
     }
@@ -472,6 +466,18 @@ impl Editor {
         self.move_to_line_end();
         self.enter_insert();
         self.move_to_line_end();
+        true
+    }
+
+    pub fn append_after_cursor(&mut self) -> bool {
+        if self.mode != Mode::Normal {
+            return false;
+        }
+        self.enter_insert();
+        self.move_right();
+        self.insert_backstep = self
+            .insert_origin
+            .is_some_and(|origin| origin != self.cursor);
         true
     }
 
@@ -533,6 +539,7 @@ impl Editor {
         }
         self.text.replace_range(start..end, "");
         self.cursor = self.position_from_byte(start);
+        self.insert_backstep = true;
         self.preferred_display_column = None;
         true
     }
@@ -542,7 +549,14 @@ impl Editor {
         self.mode = mode;
         self.anchor = Some(self.cursor);
         self.insert_origin = None;
-        self.insert_advanced = false;
+        self.insert_backstep = false;
+    }
+
+    fn prepare_cursor_move(&mut self) {
+        self.block_insert = None;
+        if self.mode == Mode::Insert {
+            self.insert_backstep = false;
+        }
     }
 
     fn clear_selection(&mut self, mode: Mode) {
@@ -551,7 +565,7 @@ impl Editor {
         self.anchor = None;
         if mode != Mode::Insert {
             self.insert_origin = None;
-            self.insert_advanced = false;
+            self.insert_backstep = false;
         }
     }
 

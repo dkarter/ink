@@ -861,6 +861,76 @@ fn edit_020_append_at_the_end_of_a_line() {
     }
 }
 
+#[test]
+fn edit_023_append_after_the_cursor() {
+    let mut editor = Editor::input("ae\u{301}👩‍💻z").expect("input fixture");
+    editor.set_cursor(Position::new(0, 1));
+    assert!(editor.append_after_cursor());
+    assert!(!editor.append_after_cursor());
+    assert_eq!(editor.mode(), Mode::Insert);
+    assert_eq!(editor.cursor(), Position::new(0, 2));
+    assert!(editor.insert("界"));
+    editor.escape();
+    assert_eq!(editor.text(), "ae\u{301}界👩‍💻z");
+    assert_eq!(editor.cursor(), Position::new(0, 2));
+    assert!(editor.undo());
+    assert_eq!(editor.text(), "ae\u{301}👩‍💻z");
+    assert_eq!(editor.cursor(), Position::new(0, 1));
+    assert!(editor.redo());
+    assert_eq!(editor.text(), "ae\u{301}界👩‍💻z");
+
+    let mut no_insert = Editor::input("abc").expect("input fixture");
+    no_insert.set_cursor(Position::new(0, 1));
+    assert!(no_insert.append_after_cursor());
+    no_insert.escape();
+    assert_eq!(no_insert.cursor(), Position::new(0, 1));
+    assert!(!no_insert.undo());
+
+    let mut line_end = Editor::input("ab").expect("input fixture");
+    line_end.move_right();
+    assert!(line_end.append_after_cursor());
+    assert!(line_end.insert("x"));
+    line_end.escape();
+    assert_eq!(line_end.text(), "abx");
+    assert_eq!(line_end.cursor(), Position::new(0, 2));
+
+    let mut moved = Editor::input("abc").expect("input fixture");
+    moved.move_right();
+    assert!(moved.append_after_cursor());
+    moved.move_to_line_start();
+    assert!(moved.insert("X"));
+    moved.escape();
+    assert_eq!(moved.text(), "Xabc");
+    assert_eq!(moved.cursor(), Position::new(0, 0));
+
+    let mut empty_input = Editor::empty_input();
+    assert!(empty_input.append_after_cursor());
+    assert!(empty_input.insert("x"));
+    empty_input.escape();
+    assert_eq!(empty_input.text(), "x");
+    assert_eq!(empty_input.cursor(), Position::new(0, 0));
+
+    let mut empty = Editor::textarea("one\n\ntwo");
+    empty.move_down();
+    assert!(empty.append_after_cursor());
+    assert_eq!(empty.cursor(), Position::new(1, 0));
+    assert!(empty.insert("x"));
+    empty.escape();
+    assert_eq!(empty.text(), "one\nx\ntwo");
+
+    for (kind, value, keys, expected) in [
+        ("input", "abc", "laX\u{1b}\u{4}", "abXc\n"),
+        ("textarea", "one\n\ntwo", "jaX\u{1b}\u{4}", "one\nX\ntwo\n"),
+    ] {
+        let result = super::command_line::prompt(
+            &format!("exec {{ink}} {kind} --normal --value '{value}'"),
+            keys.as_bytes(),
+        );
+        assert_eq!(result.status, 0, "{kind}");
+        assert_eq!(result.stdout, expected.as_bytes(), "{kind}");
+    }
+}
+
 fn contains_in_order(haystack: &[u8], needle: &[u8]) -> bool {
     let mut remaining = needle;
     for byte in haystack {
