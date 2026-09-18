@@ -19,7 +19,7 @@ use ink::{
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 
 const ENTER_BYTES: &[u8] = b"\x1b[?25l\x1b[?2004h";
-const RESTORE_BYTES: &[u8] = b"\x1b[1;1H\x1b[2K\x1b8\x1b[0 q\x1b[?2004l\x1b[?25h";
+const RESTORE_BYTES: &[u8] = b"\r\x1b[2K\r\x1b[0 q\x1b[?2004l\x1b[?25h";
 const FULLSCREEN_RESTORE_BYTES: &[u8] = b"\x1b[?1049l\x1b[0 q\x1b[?2004l\x1b[?25h";
 
 #[derive(Default)]
@@ -28,6 +28,7 @@ struct DeviceState {
     bytes: Vec<u8>,
     calls: Vec<&'static str>,
     disable_failures: usize,
+    partial_write: Option<usize>,
 }
 
 #[derive(Default)]
@@ -52,6 +53,10 @@ impl FakeDevice {
     fn fail_disable(&self, attempts: usize) {
         self.0.lock().unwrap().disable_failures = attempts;
     }
+
+    fn fail_next_write_after(&self, bytes: usize) {
+        self.0.lock().unwrap().partial_write = Some(bytes);
+    }
 }
 
 impl TerminalDevice for FakeDevice {
@@ -66,9 +71,17 @@ impl TerminalDevice for FakeDevice {
 
     fn write_all(&self, bytes: &[u8]) -> io::Result<()> {
         let mut state = self.0.lock().unwrap();
-        state.bytes.extend_from_slice(bytes);
+        let written = state
+            .partial_write
+            .take()
+            .map_or(bytes.len(), |count| count.min(bytes.len()));
+        state.bytes.extend_from_slice(&bytes[..written]);
         state.calls.push("write_terminal");
-        Ok(())
+        if written < bytes.len() {
+            Err(io::Error::other("partial terminal write"))
+        } else {
+            Ok(())
+        }
     }
 
     fn flush(&self) -> io::Result<()> {
@@ -278,7 +291,7 @@ fn io_006_restore_after_every_ordinary_outcome() {
         let device = Arc::new(FakeDevice::default());
         let mut io = FakeIo::interactive(Arc::clone(&device));
         let status = run_prompt(&mut io, None, |session, _| {
-            session.enter_inline_screen(0, 1)?;
+            session.enter_inline_screen(1)?;
             session.set_cursor_shape(CursorShape::Bar)?;
             outcome
         });
@@ -375,6 +388,24 @@ fn io_006_restore_after_every_ordinary_outcome() {
     let reported = super::sequence_position(&terminal, b"fullscreen PTY error");
     assert!(entered < left);
     assert!(left < reported);
+
+    let device = Arc::new(FakeDevice::default());
+    let mut io = FakeIo::interactive(Arc::clone(&device));
+    let status = run_prompt(&mut io, None, |session, _| {
+        session.enter_inline_screen(2)?;
+        device.fail_next_write_after(18);
+        Ok(PromptOutcome::Accepted("value".into()))
+    });
+    assert_eq!(status, ExitStatus::RuntimeFailure);
+    assert_eq!(
+        device
+            .bytes()
+            .windows(4)
+            .filter(|bytes| *bytes == b"\x1b[1A")
+            .count(),
+        2,
+        "one reservation move and one cleanup move, with no cleanup retry"
+    );
 }
 
 #[test]
@@ -391,8 +422,7 @@ fn io_007_restore_after_panic() {
     if std::env::var_os("INK_COMPACT_PANIC_CHILD").is_some() {
         let mut io = ink::terminal::ProcessIo;
         run_prompt(&mut io, None, |session, _| -> io::Result<PromptOutcome> {
-            let (_, height) = crossterm::terminal::size()?;
-            session.enter_inline_screen(height.saturating_sub(1), 1)?;
+            session.enter_inline_screen(1)?;
             session.set_cursor_shape(CursorShape::UnderScore)?;
             panic!("compact PTY panic")
         });
@@ -404,7 +434,7 @@ fn io_007_restore_after_panic() {
 
     let panic = panic::catch_unwind(AssertUnwindSafe(|| {
         run_prompt(&mut io, None, |session, _| {
-            session.enter_inline_screen(0, 1)?;
+            session.enter_inline_screen(1)?;
             session.set_cursor_shape(CursorShape::UnderScore)?;
             panic!("prompt panic")
         });
@@ -439,7 +469,7 @@ fn io_007_restore_after_panic() {
     let device = Arc::new(FakeDevice::default());
     let mut io = FakeIo::interactive(Arc::clone(&device));
     let status = run_prompt(&mut io, None, |session, _| {
-        session.enter_inline_screen(0, 1)?;
+        session.enter_inline_screen(1)?;
         session.set_cursor_shape(CursorShape::Bar)?;
         assert!(
             std::thread::spawn(|| panic!("worker panic"))
@@ -517,7 +547,7 @@ fn io_007_restore_after_panic() {
         "specs::terminal_io::io_007_restore_after_panic",
         "INK_COMPACT_PANIC_CHILD",
     );
-    let cleared = super::sequence_position(&compact, b"\x1b[8;1H\x1b[2K");
+    let cleared = super::sequence_position(&compact, b"\r\x1b[2K");
     let reported = super::sequence_position(&compact, b"compact PTY panic");
     assert!(
         cleared < reported,

@@ -42,6 +42,7 @@
       "properties": {
         "foreground": { "$ref": "#/$defs/color", "description": "Primary text." },
         "background": { "$ref": "#/$defs/color", "description": "Filled widget backgrounds." },
+        "status-background": { "$ref": "#/$defs/color", "description": "Prompt status-row background." },
         "muted": { "$ref": "#/$defs/color", "description": "Hints and secondary text." },
         "placeholder": { "$ref": "#/$defs/color", "description": "Empty-value guidance." },
         "accent": { "$ref": "#/$defs/color", "description": "Accent text and highlights." },

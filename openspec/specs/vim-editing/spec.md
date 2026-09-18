@@ -34,6 +34,33 @@ Ink SHALL support Normal, Insert, and Visual modes in both prompts, plus Visual 
 - WHEN the user enters Visual Block mode and expands a rectangle
 - THEN each intersected line selects graphemes whose display cells overlap the inclusive anchor-to-cursor columns, without splitting a grapheme
 
+### Requirement: Execute command-line actions
+
+Ink SHALL provide a Vim-style command line from Normal mode without modifying the editable value.
+
+#### Scenario: Submit or cancel from the command line {#EDIT-017}
+
+- GIVEN input or textarea is in Normal mode
+- WHEN the user enters `:wq` or `:q!` and presses Enter
+- THEN the status row becomes the visible command line while the command is being entered
+- AND `:wq` accepts the current value while `:q!` cancels without standard output
+- AND Escape dismisses the command line and returns to the Normal status row
+
+#### Scenario: Report an invalid command {#EDIT-018}
+
+- GIVEN input or textarea is accepting a command from Normal mode
+- WHEN the user submits an unsupported command
+- THEN the status row temporarily shows `not a valid command` in the theme's error color
+- AND the Normal status row returns after one second or when the user continues
+
+#### Scenario: Confirm submission before quitting {#EDIT-019}
+
+- GIVEN input or textarea is accepting a command from Normal mode
+- WHEN the user submits `:q` or `:qa`
+- THEN the status row asks `Submit? (y/n)`
+- AND `y` accepts the current value
+- AND `n` or Escape returns to Normal editing
+
 ### Requirement: Apply operators to selections
 
 Ink SHALL apply delete, change, and yank to the active selection and then clear it.

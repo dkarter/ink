@@ -75,6 +75,10 @@ struct InputPrompt {
     /// Guidance shown while the editable value is empty.
     #[usage(long)]
     placeholder: Option<String>,
+
+    /// Use the complete terminal area instead of an inline prompt.
+    #[usage(long)]
+    fullscreen: bool,
 }
 
 #[derive(Args)]
@@ -148,6 +152,7 @@ pub struct ResolvedPromptOptions {
     pub settings: Settings,
     pub theme: theme::ResolvedTheme,
     pub input_background: bool,
+    pub status_background: bool,
 }
 
 /// Resolve all configuration that the prompt runtime will receive.
@@ -157,10 +162,14 @@ pub fn resolve_prompt_options(config: &config::Config, cli: &CliOptions) -> Reso
     let settings = Settings::resolve(config, cli);
     let theme = theme::resolve(settings.theme, &config.colors);
     let input_background = config.colors.contains_key(&theme::ColorRole::Background);
+    let status_background = config
+        .colors
+        .contains_key(&theme::ColorRole::StatusBackground);
     ResolvedPromptOptions {
         settings,
         theme,
         input_background,
+        status_background,
     }
 }
 
@@ -224,7 +233,7 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
                 value: prompt.value,
                 prompt: prompt.prompt.unwrap_or_default(),
                 placeholder: prompt.placeholder.unwrap_or_default(),
-                fullscreen: false,
+                fullscreen: prompt.fullscreen,
             },
             runtime,
         ),

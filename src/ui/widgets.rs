@@ -217,6 +217,7 @@ pub struct Textarea<'a> {
     placeholder: &'a str,
     palette: Option<Palette>,
     hint: &'a str,
+    status_background: bool,
 }
 
 impl<'a> Textarea<'a> {
@@ -227,6 +228,7 @@ impl<'a> Textarea<'a> {
             placeholder: "",
             palette: None,
             hint: "",
+            status_background: false,
         }
     }
 
@@ -245,6 +247,12 @@ impl<'a> Textarea<'a> {
     #[must_use]
     pub const fn hint(mut self, hint: &'a str) -> Self {
         self.hint = hint;
+        self
+    }
+
+    #[must_use]
+    pub const fn status_background(mut self, status_background: bool) -> Self {
+        self.status_background = status_background;
         self
     }
 }
@@ -342,6 +350,14 @@ impl StatefulWidget for Textarea<'_> {
         }
 
         if area.height > 1 {
+            if self.status_background
+                && let Some(palette) = self.palette
+            {
+                buf.set_style(
+                    Rect::new(area.x, area.bottom() - 1, area.width, 1),
+                    Style::default().bg(palette.status_background.into()),
+                );
+            }
             let hint_width = crate::display::text_width(self.hint);
             if available > mode_width + hint_width {
                 render_text(

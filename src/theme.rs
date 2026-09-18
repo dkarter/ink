@@ -72,6 +72,7 @@ impl From<Color> for ratatui::style::Color {
 pub enum ColorRole {
     Foreground,
     Background,
+    StatusBackground,
     Muted,
     Placeholder,
     Accent,
@@ -87,9 +88,10 @@ pub enum ColorRole {
 }
 
 impl ColorRole {
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Foreground,
         Self::Background,
+        Self::StatusBackground,
         Self::Muted,
         Self::Placeholder,
         Self::Accent,
@@ -109,6 +111,7 @@ impl ColorRole {
         match self {
             Self::Foreground => "foreground",
             Self::Background => "background",
+            Self::StatusBackground => "status-background",
             Self::Muted => "muted",
             Self::Placeholder => "placeholder",
             Self::Accent => "accent",
@@ -158,6 +161,7 @@ impl<'de> Deserialize<'de> for ColorRole {
 pub struct Palette {
     pub foreground: Color,
     pub background: Color,
+    pub status_background: Color,
     pub muted: Color,
     pub placeholder: Color,
     pub accent: Color,
@@ -178,6 +182,7 @@ impl Palette {
         match role {
             ColorRole::Foreground => self.foreground,
             ColorRole::Background => self.background,
+            ColorRole::StatusBackground => self.status_background,
             ColorRole::Muted => self.muted,
             ColorRole::Placeholder => self.placeholder,
             ColorRole::Accent => self.accent,
@@ -197,6 +202,7 @@ impl Palette {
         match role {
             ColorRole::Foreground => self.foreground = color,
             ColorRole::Background => self.background = color,
+            ColorRole::StatusBackground => self.status_background = color,
             ColorRole::Muted => self.muted = color,
             ColorRole::Placeholder => self.placeholder = color,
             ColorRole::Accent => self.accent = color,

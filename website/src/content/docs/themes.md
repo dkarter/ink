@@ -40,6 +40,7 @@ User configuration overrides individual semantic color roles after loading a bun
 | ---------------------- | ------------------------- |
 | `foreground`           | Primary text              |
 | `background`           | Filled widget backgrounds |
+| `status-background`    | Prompt status backgrounds |
 | `muted`                | Hints and secondary text  |
 | `placeholder`          | Empty-value guidance      |
 | `accent`               | Reserved accent color     |
@@ -60,9 +61,10 @@ Use the exact kebab-case role name with a `#RRGGBB` value:
 selection = "#33467c"
 selection-foreground = "#c0caf5"
 normal-mode = "#7aa2f7"
+status-background = "#202330"
 ```
 
-Single-line input leaves the terminal background untouched by default. Set the `background` role explicitly when a filled input row is preferred.
+Single-line input and its status row leave the terminal background untouched by default. Set `background` for a filled input row or `status-background` to fill the status row for either prompt.
 
 Unknown theme names, color roles, or color values fail startup before terminal state changes.
 

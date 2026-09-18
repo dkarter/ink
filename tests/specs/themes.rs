@@ -18,9 +18,10 @@ const REQUIRED_THEME_NAMES: [&str; 10] = [
     "solarized-dark",
     "solarized-light",
 ];
-const COLOR_ROLE_NAMES: [&str; 14] = [
+const COLOR_ROLE_NAMES: [&str; 15] = [
     "foreground",
     "background",
+    "status-background",
     "muted",
     "placeholder",
     "accent",
@@ -355,6 +356,28 @@ fn theme_009_adapt_the_browser_presentation() {
     let wide = String::from_utf8_lossy(&observations[1].terminal);
     for text in ["café λ 東", "京"] {
         assert!(wide.contains(text), "{wide:?}");
+    }
+}
+
+#[test]
+fn theme_010_configure_the_status_background() {
+    let color = Color::rgb(1, 2, 3);
+    for command in ["exec {ink} input", "exec {ink} textarea"] {
+        let transparent = super::command_line::prompt(command, b"\x03");
+        assert!(!terminal_has_color(&transparent.terminal, "48", color));
+
+        let configured = super::command_line::prompt_with_config(
+            command,
+            b"\x03",
+            Some("[colors]\nstatus-background = \"#010203\"\n"),
+        );
+        assert!(terminal_has_color(&configured.terminal, "48", color));
+        assert!(
+            configured
+                .terminal
+                .windows(6)
+                .any(|bytes| bytes == b"INSERT")
+        );
     }
 }
 

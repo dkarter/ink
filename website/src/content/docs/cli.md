@@ -23,8 +23,9 @@ The same options apply to `input` and `textarea`.
 | `--normal`             | Start in Normal mode instead of Insert mode                |
 | `--theme <NAME>`       | Select a bundled or configured theme                       |
 | `--placeholder <TEXT>` | Show guidance while the editable value is empty            |
+| `--fullscreen`         | Use the complete terminal and alternate screen             |
 
-`input` also accepts `--prompt <TEXT>` and shows no prefix by default. `textarea` uses five editable rows plus a status row by default and accepts `--fullscreen` to use the complete terminal.
+`input` also accepts `--prompt <TEXT>` and shows no prefix by default. Inline input uses one editable row, one blank padding row, and one status row. Textarea uses five editable rows plus a status row. In fullscreen layouts, the status remains at the bottom while editing starts at the top.
 
 Input removes LF, CRLF, and lone CR line breaks from explicit values, piped seeds, and bracketed paste. Textarea uses LF for its logical line model, normalizing CRLF and lone CR from those sources to LF.
 

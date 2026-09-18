@@ -18,6 +18,8 @@ The input has no prefix by default. Add one with `--prompt "Name: "`.
 
 Add empty-state guidance with `--placeholder "Release title"`. It disappears when you type and is never included in the accepted value.
 
+Input uses three compact rows by default: input, blank padding, and status. Use `ink input --fullscreen` in a popup or other dedicated terminal area to keep the input at the top and the status at the bottom.
+
 ## Edit multiple lines
 
 `ink textarea` edits prose and other multiline values. Press Ctrl-D to accept:

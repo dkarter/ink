@@ -73,7 +73,7 @@ Ink SHALL accept initial text from a command-line option and from piped standard
 
 ### Requirement: Fit command workflows
 
-Ink SHALL render input and textarea as compact inline prompts by default, while allowing input prompt text to be configured and textarea to use the full terminal.
+Ink SHALL render input and textarea as compact inline prompts by default, while allowing input prompt text to be configured and either prompt to use the full terminal.
 
 #### Scenario: Configure the input prompt {#CLI-009}
 
@@ -81,6 +81,14 @@ Ink SHALL render input and textarea as compact inline prompts by default, while 
 - WHEN the prompt renders
 - THEN no prefix is shown by default
 - AND configured text prefixes the editable value when requested
+
+#### Scenario: Adapt input to inline and fullscreen workflows {#CLI-014}
+
+- GIVEN `ink input` with or without `--fullscreen`
+- WHEN the prompt renders
+- THEN the default layout starts at the current command position with one editable row, one blank padding row, and one status row
+- AND it does not jump to the physical bottom of a taller terminal or request a cursor-position report
+- AND `--fullscreen` places the editable row at the top of the alternate screen and the status row at the bottom
 
 #### Scenario: Keep textarea compact by default {#CLI-010}
 

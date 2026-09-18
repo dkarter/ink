@@ -598,6 +598,103 @@ fn edit_015_open_a_line_for_insertion() {
     }
 }
 
+#[test]
+fn edit_017_submit_or_cancel_from_the_command_line() {
+    for kind in ["input", "textarea"] {
+        let accepted = super::command_line::prompt(
+            &format!("exec {{ink}} {kind} --normal --value value"),
+            b":\x1b:wq\r",
+        );
+        assert_eq!(accepted.status, 0, "{kind}");
+        assert_eq!(accepted.stdout, b"value\n", "{kind}");
+        assert!(contains_in_order(&accepted.terminal, b":wq"));
+
+        let cancelled = super::command_line::prompt(
+            &format!("exec {{ink}} {kind} --normal --value unchanged"),
+            b":q!\r",
+        );
+        assert_eq!(cancelled.status, 130, "{kind}");
+        assert!(cancelled.stdout.is_empty(), "{kind}");
+        assert!(contains_in_order(&cancelled.terminal, b":q!"));
+    }
+}
+
+#[test]
+fn edit_018_report_an_invalid_command() {
+    for kind in ["input", "textarea"] {
+        let result = super::command_line::prompt_with_delayed_keys(
+            &format!("exec {{ink}} {kind} --normal --value unchanged"),
+            b":nope\r",
+            std::time::Duration::from_millis(1_200),
+            b"\x03",
+            Some("[colors]\nerror = \"#010203\"\n"),
+        );
+        assert_eq!(result.status, 130, "{kind}");
+        assert!(
+            result
+                .terminal
+                .windows("not a valid command".len())
+                .any(|bytes| bytes == b"not a valid command"),
+            "{kind}"
+        );
+        let error = super::sequence_position(&result.terminal, b"not a valid command");
+        assert!(
+            result.terminal[error..]
+                .windows(6)
+                .any(|bytes| bytes == b"NORMAL"),
+            "{kind}"
+        );
+        assert!(
+            result
+                .terminal
+                .windows("38;2;1;2;3".len())
+                .any(|bytes| bytes == b"38;2;1;2;3"),
+            "{kind}"
+        );
+    }
+}
+
+#[test]
+fn edit_019_confirm_submission_before_quitting() {
+    for kind in ["input", "textarea"] {
+        for command in ["q", "qa"] {
+            let accepted = super::command_line::prompt(
+                &format!("exec {{ink}} {kind} --normal --value submitted"),
+                format!(":{command}\ry").as_bytes(),
+            );
+            assert_eq!(accepted.status, 0, "{kind} :{command}");
+            assert_eq!(accepted.stdout, b"submitted\n", "{kind} :{command}");
+            assert!(
+                accepted
+                    .terminal
+                    .windows("Submit? (y/n)".len())
+                    .any(|bytes| bytes == b"Submit? (y/n)"),
+                "{kind} :{command}"
+            );
+        }
+
+        let resumed = super::command_line::prompt(
+            &format!("exec {{ink}} {kind} --normal --value resumed"),
+            b":q\r\x1b:q\rn:wq\r",
+        );
+        assert_eq!(resumed.status, 0, "{kind}");
+        assert_eq!(resumed.stdout, b"resumed\n", "{kind}");
+    }
+}
+
+fn contains_in_order(haystack: &[u8], needle: &[u8]) -> bool {
+    let mut remaining = needle;
+    for byte in haystack {
+        if remaining.first() == Some(byte) {
+            remaining = &remaining[1..];
+            if remaining.is_empty() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn block_editor() -> Editor {
     let mut editor = Editor::textarea("abcd\nx\npqrs");
     editor.set_cursor(Position::new(0, 1));

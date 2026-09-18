@@ -18,6 +18,7 @@ macro_rules! palette {
         Palette {
             foreground: rgb($foreground),
             background: rgb($background),
+            status_background: rgb($background),
             muted: rgb($muted),
             placeholder: rgb($muted),
             accent: rgb($accent),

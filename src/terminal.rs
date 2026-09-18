@@ -2,10 +2,10 @@
 
 use std::{
     io::{self, Write},
-    ops::Range,
     panic::{self, AssertUnwindSafe},
     process::ExitCode,
     sync::{Arc, Mutex, MutexGuard},
+    time::Duration,
 };
 
 mod panic_hook;
@@ -15,8 +15,6 @@ pub use process::ProcessIo;
 #[doc(hidden)]
 pub use process::{ConsoleMode, HandleRawMode};
 
-const SAVE_POSITION: &str = "\x1b7";
-const RESTORE_POSITION: &str = "\x1b8";
 const HIDE_CURSOR: &[u8] = b"\x1b[?25l";
 const SHOW_CURSOR: &[u8] = b"\x1b[?25h";
 const DEFAULT_CURSOR: &[u8] = b"\x1b[0 q";
@@ -141,6 +139,15 @@ impl TerminalSession {
         crossterm::event::read()
     }
 
+    /// Read a decoded terminal event if one arrives before the timeout.
+    pub fn poll_event(&self, timeout: Duration) -> io::Result<Option<crossterm::event::Event>> {
+        if crossterm::event::poll(timeout)? {
+            self.read_event().map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Write UI bytes to the controlling terminal, never to stdout.
     pub fn write_ui(&self, bytes: &[u8]) -> io::Result<()> {
         self.restoration.device.write_all(bytes)
@@ -164,35 +171,64 @@ impl TerminalSession {
         self.restoration.device.write_all(bytes)
     }
 
-    pub fn enter_inline_screen(&self, top: u16, height: u16) -> io::Result<()> {
+    pub fn enter_inline_screen(&self, height: u16) -> io::Result<()> {
         {
             let mut state = self
                 .restoration
                 .state
                 .lock()
                 .unwrap_or_else(|error| error.into_inner());
-            state.screen = ScreenState::Inline(Vec::new());
-            track_rows(&mut state.screen, top, height);
+            state.screen = ScreenState::Inline {
+                height,
+                cursor_row: 0,
+            };
         }
         let reserved_lines = height.saturating_sub(1);
-        let mut reserve = String::from("\x1b[999B");
+        let mut reserve = String::new();
         reserve.push_str("\r\n".repeat(usize::from(reserved_lines)).as_str());
         if reserved_lines > 0 {
             use std::fmt::Write as _;
             write!(reserve, "\x1b[{reserved_lines}A").expect("writing to a string cannot fail");
         }
-        reserve.push_str(SAVE_POSITION);
+        reserve.push('\r');
         self.write_ui(reserve.as_bytes())?;
         self.flush()
     }
 
-    pub fn track_inline_screen(&self, top: u16, height: u16) {
+    pub fn track_inline_screen(&self, height: u16) {
         let mut state = self
             .restoration
             .state
             .lock()
             .unwrap_or_else(|error| error.into_inner());
-        track_rows(&mut state.screen, top, height);
+        if let ScreenState::Inline {
+            height: tracked, ..
+        } = &mut state.screen
+        {
+            *tracked = (*tracked).max(height);
+        }
+    }
+
+    pub(crate) fn track_inline_cursor(&self, row: u16) {
+        let mut state = self
+            .restoration
+            .state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if let ScreenState::Inline { cursor_row, .. } = &mut state.screen {
+            *cursor_row = row;
+        }
+    }
+
+    pub(crate) fn abandon_inline_screen(&self) {
+        let mut state = self
+            .restoration
+            .state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if matches!(state.screen, ScreenState::Inline { .. }) {
+            state.screen = ScreenState::None;
+        }
     }
 
     pub fn enter_fullscreen(&self) -> io::Result<()> {
@@ -235,7 +271,10 @@ struct RestorationState {
 enum ScreenState {
     #[default]
     None,
-    Inline(Vec<Range<u16>>),
+    Inline {
+        height: u16,
+        cursor_row: u16,
+    },
     Alternate,
 }
 
@@ -299,24 +338,31 @@ impl Restoration {
         }
         match screen {
             ScreenState::None => {}
-            ScreenState::Inline(rows) => {
-                let row_count = rows.iter().map(|range| range.len()).sum::<usize>();
-                let mut cleanup = String::with_capacity(row_count * 12 + RESTORE_POSITION.len());
-                for range in rows {
-                    for row in range {
-                        use std::fmt::Write as _;
-                        write!(cleanup, "\x1b[{};1H\x1b[2K", row + 1)
-                            .expect("writing to a string cannot fail");
+            ScreenState::Inline { height, cursor_row } => {
+                let mut cleanup = String::with_capacity(usize::from(height) * 12);
+                cleanup.push('\r');
+                if cursor_row > 0 {
+                    use std::fmt::Write as _;
+                    write!(cleanup, "\x1b[{cursor_row}A").expect("writing to a string cannot fail");
+                }
+                for row in 0..height {
+                    cleanup.push_str("\x1b[2K");
+                    if row + 1 < height {
+                        cleanup.push_str("\x1b[1B\r");
                     }
                 }
-                cleanup.push_str("\x1b8");
-                let result = self.device.write_all(cleanup.as_bytes());
-                if result.is_ok() {
-                    self.state
-                        .lock()
-                        .unwrap_or_else(|error| error.into_inner())
-                        .screen = ScreenState::None;
+                if height > 1 {
+                    use std::fmt::Write as _;
+                    write!(cleanup, "\x1b[{}A", height - 1)
+                        .expect("writing to a string cannot fail");
                 }
+                cleanup.push('\r');
+                // Relative movement cannot be retried safely after a partial device write.
+                self.state
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .screen = ScreenState::None;
+                let result = self.device.write_all(cleanup.as_bytes());
                 attempt(&mut first_error, result);
             }
             ScreenState::Alternate => {
@@ -382,29 +428,6 @@ impl Restoration {
         }
         first_error.map_or(Ok(()), Err)
     }
-}
-
-fn track_rows(screen: &mut ScreenState, top: u16, height: u16) {
-    let ScreenState::Inline(ranges) = screen else {
-        return;
-    };
-    let mut tracked = top..top.saturating_add(height);
-    if tracked.is_empty() {
-        return;
-    }
-    let mut index = 0;
-    while index < ranges.len() {
-        let range = &ranges[index];
-        if range.end < tracked.start || range.start > tracked.end {
-            index += 1;
-            continue;
-        }
-        tracked.start = tracked.start.min(range.start);
-        tracked.end = tracked.end.max(range.end);
-        ranges.remove(index);
-    }
-    ranges.push(tracked);
-    ranges.sort_unstable_by_key(|range| range.start);
 }
 
 fn attempt(first_error: &mut Option<io::Error>, result: io::Result<()>) {
