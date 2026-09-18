@@ -63,6 +63,9 @@ fn rel_002_successful_release_merge_publishes_all_artifacts() {
     ] {
         assert!(workflow.contains(target), "missing release target {target}");
     }
+    assert!(workflow.contains("install_args: rust mr-boxington"));
+    assert!(workflow.contains("gh release upload \"${TAG_NAME}\" dist/ink_* --clobber"));
+    assert!(!workflow.contains("gh release upload \"${TAG_NAME}\" dist/* --clobber"));
     assert!(workflow.contains("- build-release"));
     assert!(workflow.contains("gh release edit \"${TAG_NAME}\" --draft=false"));
 }

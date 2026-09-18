@@ -155,11 +155,11 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.release-please.outputs.release_sha }}
 
-      - name: Install Rust
+      - name: Install Rust build tools
         # v4.3.0 is an immutable GitHub release.
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: rust
+          install_args: rust mr-boxington
 
       - name: Add release target
         run: rustup target add ${{ matrix.target }}
@@ -211,7 +211,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
-        run: gh release upload "${TAG_NAME}" dist/* --clobber
+        run: gh release upload "${TAG_NAME}" dist/ink_* --clobber
 
   publish-release:
     if: ${{ needs.release-please.outputs.release_created == 'true' && needs.release-please.outputs.tag_verified == 'true' }}
