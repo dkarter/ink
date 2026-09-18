@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{fmt::Write as _, ops::Range};
 
 use ratatui::{
     buffer::Buffer,
@@ -218,6 +218,7 @@ pub struct Textarea<'a> {
     palette: Option<Palette>,
     hint: &'a str,
     status_background: bool,
+    line_numbers: bool,
 }
 
 impl<'a> Textarea<'a> {
@@ -229,6 +230,7 @@ impl<'a> Textarea<'a> {
             palette: None,
             hint: "",
             status_background: false,
+            line_numbers: false,
         }
     }
 
@@ -253,6 +255,12 @@ impl<'a> Textarea<'a> {
     #[must_use]
     pub const fn status_background(mut self, status_background: bool) -> Self {
         self.status_background = status_background;
+        self
+    }
+
+    #[must_use]
+    pub const fn line_numbers(mut self, line_numbers: bool) -> Self {
+        self.line_numbers = line_numbers;
         self
     }
 }
@@ -287,16 +295,30 @@ impl StatefulWidget for Textarea<'_> {
             .split('\n')
             .nth(cursor.line)
             .unwrap_or_default();
+        let cursor_cell_width = cursor_width(cursor_line, cursor.column);
+        let line_number_digits = if self.line_numbers {
+            usize::try_from(line_count.ilog10()).expect("decimal digit count fits usize") + 1
+        } else {
+            0
+        };
+        let preferred_gutter_width = line_number_digits + usize::from(self.line_numbers);
+        let gutter_width =
+            if self.line_numbers && available >= preferred_gutter_width + cursor_cell_width {
+                preferred_gutter_width
+            } else {
+                0
+            };
+        let content_available = available.saturating_sub(gutter_width);
         let minimum_editor_width = if area.height == 1 {
-            cursor_width(cursor_line, cursor.column)
+            cursor_cell_width
         } else {
             1
         };
         let (text_width, inline_mode_x) =
-            if area.height == 1 && available >= mode_width + minimum_editor_width {
-                (available - mode_width, Some(available - mode_width))
+            if area.height == 1 && content_available >= mode_width + minimum_editor_width {
+                (content_available - mode_width, Some(available - mode_width))
             } else {
-                (available, None)
+                (content_available, None)
             };
         let visible = state.viewport.update(
             line_count,
@@ -317,6 +339,8 @@ impl StatefulWidget for Textarea<'_> {
         } else {
             self.editor.text()
         };
+        let line_number_style = self.palette.map(line_number_style).unwrap_or_default();
+        let mut line_number = String::with_capacity(gutter_width);
         let mut byte = 0;
         for (line_index, line) in displayed.split('\n').enumerate() {
             if line_index < state.viewport.top() {
@@ -327,12 +351,21 @@ impl StatefulWidget for Textarea<'_> {
             if row >= usize::from(text_height) {
                 break;
             }
+            let y = area
+                .y
+                .saturating_add(u16::try_from(row).unwrap_or(u16::MAX));
+            if gutter_width > 0 && (!placeholder || line_index < line_count) {
+                line_number.clear();
+                write!(line_number, "{:>line_number_digits$} ", line_index + 1)
+                    .expect("writing to a string cannot fail");
+                buf.set_stringn(area.x, y, &line_number, gutter_width, line_number_style);
+            }
             render_text(
                 line,
                 state.viewport.left(),
-                area.x,
-                area.y
-                    .saturating_add(u16::try_from(row).unwrap_or(u16::MAX)),
+                area.x
+                    .saturating_add(u16::try_from(gutter_width).unwrap_or(u16::MAX)),
+                y,
                 text_width,
                 if placeholder {
                     TextDecoration::plain(self.palette.map(placeholder_style))
@@ -393,6 +426,7 @@ impl StatefulWidget for Textarea<'_> {
         }
         state.cursor = Some(CursorRequest::new(
             area.x
+                .saturating_add(u16::try_from(gutter_width).unwrap_or(u16::MAX))
                 .saturating_add(u16::try_from(visible.column).unwrap_or(u16::MAX)),
             area.y
                 .saturating_add(u16::try_from(visible.row).unwrap_or(u16::MAX)),
@@ -549,6 +583,12 @@ fn mode_style(palette: Palette, mode: Mode) -> Style {
 fn muted_style(palette: Palette) -> Style {
     Style::default()
         .fg(palette.muted.into())
+        .bg(palette.background.into())
+}
+
+fn line_number_style(palette: Palette) -> Style {
+    Style::default()
+        .fg(palette.line_number.into())
         .bg(palette.background.into())
 }
 

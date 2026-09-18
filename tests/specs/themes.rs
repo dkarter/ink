@@ -18,10 +18,11 @@ const REQUIRED_THEME_NAMES: [&str; 10] = [
     "solarized-dark",
     "solarized-light",
 ];
-const COLOR_ROLE_NAMES: [&str; 15] = [
+const COLOR_ROLE_NAMES: [&str; 16] = [
     "foreground",
     "background",
     "status-background",
+    "line-number",
     "muted",
     "placeholder",
     "accent",
@@ -102,6 +103,11 @@ fn theme_002_select_every_bundled_theme() {
             ),
             ("muted/background", palette.muted, palette.background),
             (
+                "line-number/background",
+                palette.line_number,
+                palette.background,
+            ),
+            (
                 "placeholder/background",
                 palette.placeholder,
                 palette.background,
@@ -136,6 +142,7 @@ fn theme_002_select_every_bundled_theme() {
                 "{canonical_name} {combination} contrast {ratio:.2}:1 is below 4.5:1"
             );
         }
+        assert_eq!(palette.line_number, palette.muted, "{canonical_name}");
     }
 }
 #[test]

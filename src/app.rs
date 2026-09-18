@@ -134,6 +134,7 @@ pub(crate) fn run(
                         .palette(options.theme.palette)
                         .hint("ctrl-d submit  ctrl-c cancel")
                         .status_background(options.status_background)
+                        .line_numbers(options.settings.line_numbers)
                         .render(area, frame.buffer_mut(), &mut textarea_state);
                     cursor = command_line.as_ref().map_or_else(
                         || textarea_state.cursor(),

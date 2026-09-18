@@ -27,6 +27,8 @@ The same options apply to `input` and `textarea`.
 
 `input` also accepts `--prompt <TEXT>` and shows no prefix by default. Inline input uses one editable row, one blank padding row, and one status row. Textarea uses five editable rows plus a status row. In fullscreen layouts, the status remains at the bottom while editing starts at the top.
 
+`textarea` shows line numbers by default. Use `--no-line-numbers` to hide them or `--line-numbers` to override a disabled global setting.
+
 Input removes LF, CRLF, and lone CR line breaks from explicit values, piped seeds, and bracketed paste. Textarea uses LF for its logical line model, normalizing CRLF and lone CR from those sources to LF.
 
 Placeholders are presentation-only and never become part of the editable or accepted value. Input removes line breaks from placeholder text, while textarea preserves its logical lines.

@@ -407,6 +407,148 @@ fn ui_006_input_background_is_opt_in() {
     );
 }
 
+#[test]
+fn ui_007_render_configurable_textarea_line_numbers() {
+    let text = (1..=12)
+        .map(|line| format!("line {line}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut editor = Editor::textarea(&text);
+    editor.set_cursor(Position::new(10, 4));
+    let palette = theme::resolve(ThemeName::TokyoNight, &Default::default()).palette;
+    let area = Rect::new(0, 0, 12, 4);
+    let mut numbered = Buffer::empty(area);
+    let mut state = TextareaState::default();
+
+    Textarea::new(&editor)
+        .palette(palette)
+        .line_numbers(true)
+        .render(area, &mut numbered, &mut state);
+
+    assert_eq!(state.viewport().top(), 8);
+    assert!(buffer_row(&numbered, 0).starts_with(" 9 line 9"));
+    assert!(buffer_row(&numbered, 1).starts_with("10 line 10"));
+    assert!(buffer_row(&numbered, 2).starts_with("11 line 11"));
+    assert_eq!(state.cursor().unwrap().position.x, 7);
+    assert_eq!(
+        numbered.cell((0, 0)).unwrap().fg,
+        palette.line_number.into()
+    );
+    assert_eq!(numbered.cell((3, 0)).unwrap().fg, palette.foreground.into());
+
+    let mut horizontal_editor = Editor::textarea("zero\n0123456789");
+    horizontal_editor.set_cursor(Position::new(1, 10));
+    let horizontal_area = Rect::new(0, 0, 8, 3);
+    let mut horizontal = Buffer::empty(horizontal_area);
+    let mut horizontal_state = TextareaState::default();
+    Textarea::new(&horizontal_editor).line_numbers(true).render(
+        horizontal_area,
+        &mut horizontal,
+        &mut horizontal_state,
+    );
+    assert!(horizontal_state.viewport().left() > 0);
+    assert!(buffer_row(&horizontal, 1).starts_with("2 "));
+
+    let trailing_editor = Editor::textarea("one\n");
+    let trailing_area = Rect::new(0, 0, 8, 3);
+    let mut trailing = Buffer::empty(trailing_area);
+    Textarea::new(&trailing_editor).line_numbers(true).render(
+        trailing_area,
+        &mut trailing,
+        &mut TextareaState::default(),
+    );
+    assert!(buffer_row(&trailing, 0).starts_with("1 one"));
+    assert!(buffer_row(&trailing, 1).starts_with("2 "));
+
+    let placeholder_editor = Editor::textarea("");
+    let placeholder_area = Rect::new(0, 0, 12, 3);
+    let mut placeholder = Buffer::empty(placeholder_area);
+    Textarea::new(&placeholder_editor)
+        .placeholder("first\nsecond")
+        .line_numbers(true)
+        .render(
+            placeholder_area,
+            &mut placeholder,
+            &mut TextareaState::default(),
+        );
+    assert!(buffer_row(&placeholder, 0).starts_with("1 first"));
+    assert!(buffer_row(&placeholder, 1).starts_with("  second"));
+
+    let mut unnumbered = Buffer::empty(area);
+    Textarea::new(&editor)
+        .palette(palette)
+        .line_numbers(false)
+        .render(area, &mut unnumbered, &mut TextareaState::default());
+    assert!(buffer_row(&unnumbered, 0).starts_with("line 9"));
+
+    let narrow_area = Rect::new(0, 0, 1, 1);
+    let mut narrow = Buffer::empty(narrow_area);
+    Textarea::new(&editor).line_numbers(true).render(
+        narrow_area,
+        &mut narrow,
+        &mut TextareaState::default(),
+    );
+    assert_eq!(narrow.cell((0, 0)).unwrap().symbol(), " ");
+
+    let wide_editor = Editor::textarea("界");
+    let wide_area = Rect::new(0, 0, 3, 2);
+    let mut wide = Buffer::empty(wide_area);
+    let mut wide_state = TextareaState::default();
+    Textarea::new(&wide_editor)
+        .line_numbers(true)
+        .render(wide_area, &mut wide, &mut wide_state);
+    assert_eq!(wide.cell((0, 0)).unwrap().symbol(), "界");
+    assert_eq!(wide_state.cursor().unwrap().position.x, 0);
+
+    let configured = super::command_line::prompt_with_config(
+        "exec {ink} textarea --value 'one\ntwo'",
+        b"\x03",
+        Some("[colors]\nline-number = \"#010203\"\n"),
+    );
+    assert!(contains(&configured.terminal, b"38;2;1;2;3"));
+
+    for (command, config) in [
+        (
+            "exec {ink} textarea --value 'one\ntwo'",
+            "line-numbers = false\n[colors]\nline-number = \"#010203\"\n",
+        ),
+        (
+            "exec {ink} textarea --no-line-numbers --value 'one\ntwo'",
+            "[colors]\nline-number = \"#010203\"\n",
+        ),
+    ] {
+        let hidden = super::command_line::prompt_with_config(command, b"\x03", Some(config));
+        assert!(!contains(&hidden.terminal, b"38;2;1;2;3"));
+    }
+
+    let forced = super::command_line::prompt_with_config(
+        "exec {ink} textarea --line-numbers --value 'one\ntwo'",
+        b"\x03",
+        Some("line-numbers = false\n[colors]\nline-number = \"#010203\"\n"),
+    );
+    assert!(contains(&forced.terminal, b"38;2;1;2;3"));
+
+    let help = std::process::Command::new(env!("CARGO_BIN_EXE_ink"))
+        .args(["textarea", "--help"])
+        .output()
+        .expect("show textarea help");
+    assert!(help.status.success());
+    let help = String::from_utf8(help.stdout).expect("help is UTF-8");
+    assert!(help.contains("--line-numbers"));
+    assert!(help.contains("--no-line-numbers"));
+
+    for args in [
+        ["textarea", "--line-numbers", "--no-line-numbers"].as_slice(),
+        ["input", "--no-line-numbers"].as_slice(),
+    ] {
+        let invalid = std::process::Command::new(env!("CARGO_BIN_EXE_ink"))
+            .args(args)
+            .output()
+            .expect("run invalid line-number options");
+        assert_eq!(invalid.status.code(), Some(2), "{args:?}");
+    }
+}
+
 fn textarea_in_mode(mode: Mode) -> Editor {
     let mut editor = Editor::textarea("text");
     match mode {

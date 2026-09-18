@@ -25,6 +25,8 @@ ink completion zsh > _ink
 
 Accepted values are written cleanly to stdout. Interactive input and rendering use the controlling terminal so piped initial values remain compatible with shell composition. Input uses a compact three-row interface, and textarea provides five editable rows unless `--fullscreen` is set. Press Enter to accept an input, Ctrl-D to accept either prompt, Ctrl-C to cancel, or `q` to cancel from Normal mode.
 
+Textarea shows line numbers by default. Set `line-numbers = false` in `config.toml` or pass `--no-line-numbers` to hide them; `--line-numbers` overrides the global setting for one invocation.
+
 ### Placeholders
 
 Both prompt commands accept `--placeholder <text>`. Placeholders appear only while the editable value is empty and never become part of the accepted output. Input placeholders are normalized to one line, while textarea placeholders may span multiple lines.

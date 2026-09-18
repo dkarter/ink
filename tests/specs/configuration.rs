@@ -82,7 +82,7 @@ fn cfg_005_ignore_invalid_xdg_config_home() {
 fn cfg_003_command_line_overrides_configuration() {
     let config = config::parse(
         Path::new("config.toml"),
-        "normal = false\ntheme = \"dracula\"\n",
+        "normal = false\nline-numbers = false\ntheme = \"dracula\"\n",
     )
     .expect("parse config");
 
@@ -90,11 +90,13 @@ fn cfg_003_command_line_overrides_configuration() {
         &config,
         &CliOptions {
             normal: Some(true),
+            line_numbers: Some(true),
             theme: Some(ThemeName::GruvboxDark),
         },
     );
 
     assert_eq!(settings.startup_mode, StartupMode::Normal);
+    assert!(settings.line_numbers);
     assert_eq!(settings.theme, ThemeName::GruvboxDark);
 }
 #[test]
@@ -103,6 +105,7 @@ fn cfg_004_invalid_configuration_is_actionable() {
         ("theme = [", "theme"),
         ("theme = \"made-up\"", "theme"),
         ("normal = \"sometimes\"", "normal"),
+        ("line-numbers = \"sometimes\"", "line-numbers"),
         ("mystery = true", "mystery"),
     ];
 
@@ -200,8 +203,9 @@ fn cfg_008_describe_the_complete_config_surface() {
     let root = schema["properties"].as_object().expect("root properties");
     assert_eq!(
         root.keys().map(String::as_str).collect::<Vec<_>>(),
-        ["colors", "normal", "theme"]
+        ["colors", "line-numbers", "normal", "theme"]
     );
+    assert_eq!(root["line-numbers"]["default"], true);
     assert_eq!(root["normal"]["default"], false);
     assert_eq!(root["theme"]["default"], "tokyo-night");
     assert_eq!(

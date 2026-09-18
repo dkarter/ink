@@ -102,6 +102,14 @@ struct TextareaPrompt {
     /// Guidance shown while the editable value is empty.
     #[usage(long)]
     placeholder: Option<String>,
+
+    /// Show line numbers, overriding configuration.
+    #[usage(long, conflicts = "--no-line-numbers")]
+    line_numbers: bool,
+
+    /// Hide line numbers, overriding configuration.
+    #[usage(long, conflicts = "--line-numbers")]
+    no_line_numbers: bool,
 }
 
 #[derive(Args)]
@@ -228,6 +236,7 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
         Command::Input(prompt) => dispatch_prompt(
             prompt.normal,
             prompt.theme,
+            None,
             PromptKind::Input,
             PromptRuntimeOptions {
                 value: prompt.value,
@@ -240,6 +249,13 @@ fn dispatch(cli: Ink, runtime: &mut impl CliRuntime) -> ExitCode {
         Command::Textarea(prompt) => dispatch_prompt(
             prompt.normal,
             prompt.theme,
+            if prompt.line_numbers {
+                Some(true)
+            } else if prompt.no_line_numbers {
+                Some(false)
+            } else {
+                None
+            },
             PromptKind::Textarea,
             PromptRuntimeOptions {
                 value: prompt.value,
@@ -295,6 +311,7 @@ fn dispatch_theme(runtime: &mut impl CliRuntime) -> ExitCode {
 fn dispatch_prompt(
     normal: bool,
     theme: Option<String>,
+    line_numbers: Option<bool>,
     kind: PromptKind,
     prompt: PromptRuntimeOptions,
     runtime: &mut impl CliRuntime,
@@ -315,6 +332,7 @@ fn dispatch_prompt(
     };
     let cli_options = CliOptions {
         normal: normal.then_some(true),
+        line_numbers,
         theme,
     };
     let resolved_options = resolve_prompt_options(&config, &cli_options);

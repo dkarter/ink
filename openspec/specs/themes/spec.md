@@ -38,7 +38,7 @@ Ink SHALL accept theme names from configuration and `--theme`, with command-line
 
 ### Requirement: Override theme roles
 
-Ink SHALL allow configuration to override the exact kebab-case semantic color roles `foreground`, `background`, `status-background`, `muted`, `accent`, `border`, `selection`, `selection-foreground`, `cursor`, `insert-mode`, `normal-mode`, `visual-mode`, `error`, and `warning` after the selected bundled base theme is loaded.
+Ink SHALL allow configuration to override the exact kebab-case semantic color roles `foreground`, `background`, `status-background`, `line-number`, `muted`, `placeholder`, `accent`, `border`, `selection`, `selection-foreground`, `cursor`, `insert-mode`, `normal-mode`, `visual-mode`, `error`, and `warning` after the selected bundled base theme is loaded.
 
 #### Scenario: User colors overlay a base theme {#THEME-004}
 

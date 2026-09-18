@@ -41,6 +41,7 @@ User configuration overrides individual semantic color roles after loading a bun
 | `foreground`           | Primary text              |
 | `background`           | Filled widget backgrounds |
 | `status-background`    | Prompt status backgrounds |
+| `line-number`          | Textarea line numbers     |
 | `muted`                | Hints and secondary text  |
 | `placeholder`          | Empty-value guidance      |
 | `accent`               | Reserved accent color     |
@@ -65,6 +66,8 @@ status-background = "#202330"
 ```
 
 Single-line input and its status row leave the terminal background untouched by default. Set `background` for a filled input row or `status-background` to fill the status row for either prompt.
+
+Bundled themes derive `line-number` from their muted text color. Override it independently when the gutter needs a different subdued color.
 
 Unknown theme names, color roles, or color values fail startup before terminal state changes.
 

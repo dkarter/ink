@@ -49,6 +49,20 @@ Ink SHALL keep the textarea cursor visible horizontally and vertically without c
 - WHEN the cursor moves beyond the visible viewport
 - THEN the viewport scrolls by display cells and logical lines until the complete cursor grapheme is visible
 
+### Requirement: Number textarea lines
+
+Ink SHALL show a right-aligned line-number gutter in textarea by default, using a theme color that is subdued relative to editable text.
+
+#### Scenario: Render configurable textarea line numbers {#UI-007}
+
+- GIVEN textarea content with line numbers enabled or disabled by resolved configuration
+- WHEN Ink renders, scrolls, or narrows the textarea
+- THEN enabled line numbers identify visible logical lines and remain fixed outside horizontal text scrolling
+- AND bundled themes render them with the dedicated `line-number` color derived from muted text
+- AND an explicit `line-number` color override is honored
+- AND disabled line numbers consume no columns
+- AND the gutter is omitted before it would consume the final editable cell
+
 ### Requirement: Respond to resize events
 
 Ink SHALL recompute layout and viewport bounds from the latest terminal dimensions after every resize event.

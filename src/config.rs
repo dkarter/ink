@@ -130,6 +130,8 @@ impl<'de> Deserialize<'de> for ThemeName {
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub normal: Option<bool>,
+    #[serde(rename = "line-numbers")]
+    pub line_numbers: Option<bool>,
     pub theme: Option<ThemeName>,
     #[serde(default)]
     pub colors: BTreeMap<ColorRole, Color>,
@@ -139,6 +141,7 @@ pub struct Config {
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CliOptions {
     pub normal: Option<bool>,
+    pub line_numbers: Option<bool>,
     pub theme: Option<ThemeName>,
 }
 
@@ -153,6 +156,7 @@ pub enum StartupMode {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Settings {
     pub startup_mode: StartupMode,
+    pub line_numbers: bool,
     pub theme: ThemeName,
 }
 
@@ -160,6 +164,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             startup_mode: StartupMode::Insert,
+            line_numbers: true,
             theme: ThemeName::TokyoNight,
         }
     }
@@ -182,6 +187,10 @@ impl Settings {
             });
         Self {
             startup_mode,
+            line_numbers: cli
+                .line_numbers
+                .or(config.line_numbers)
+                .unwrap_or(defaults.line_numbers),
             theme: cli.theme.or(config.theme).unwrap_or(defaults.theme),
         }
     }

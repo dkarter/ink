@@ -11,6 +11,11 @@
       "type": "boolean",
       "default": false
     },
+    "line-numbers": {
+      "description": "Show a line-number gutter in textarea prompts.",
+      "type": "boolean",
+      "default": true
+    },
     "theme": {
       "description": "Bundled color palette used by prompts.",
       "type": "string",
@@ -43,6 +48,7 @@
         "foreground": { "$ref": "#/$defs/color", "description": "Primary text." },
         "background": { "$ref": "#/$defs/color", "description": "Filled widget backgrounds." },
         "status-background": { "$ref": "#/$defs/color", "description": "Prompt status-row background." },
+        "line-number": { "$ref": "#/$defs/color", "description": "Textarea line numbers." },
         "muted": { "$ref": "#/$defs/color", "description": "Hints and secondary text." },
         "placeholder": { "$ref": "#/$defs/color", "description": "Empty-value guidance." },
         "accent": { "$ref": "#/$defs/color", "description": "Accent text and highlights." },

@@ -27,6 +27,7 @@ For example, `--theme nord` overrides a theme selected in `config.toml`.
 The configuration file accepts these settings:
 
 - `normal`: whether the prompt starts in Normal mode (`false` by default)
+- `line-numbers`: whether textarea shows line numbers (`true` by default)
 - `theme`: a case-insensitive bundled theme name, using hyphens as separators (`tokyo-night` by default)
 - `colors`: semantic `#RRGGBB` overrides applied after the selected theme
 
