@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.0](https://github.com/dkarter/ink/compare/v0.1.1...v0.2.0) (2026-09-18)
+
+
+### Features
+
+* **release:** automate artifact publication ([36741bc](https://github.com/dkarter/ink/commit/36741bc4b387da080ca896ab091ee4d55ff67eb0))
+* **theme:** add browser and config tooling ([19791d2](https://github.com/dkarter/ink/commit/19791d2e889b1325365a7719fa4dd25f12e0e2c8))
+
+
+### Bug Fixes
+
+* **deps:** update dependency @fission-ai/openspec to v1.13.1 ([#11](https://github.com/dkarter/ink/issues/11)) ([86ff7b7](https://github.com/dkarter/ink/commit/86ff7b717e5c5780fc9f11e60d4f8928e940c868))
+* **deps:** update rust crate syn to v3 ([#9](https://github.com/dkarter/ink/issues/9)) ([1a2f907](https://github.com/dkarter/ink/commit/1a2f907f0ac597f016cecd1f2a06f90614b75cd9))
+* **release:** bind artifacts to tagged commit ([1929ec9](https://github.com/dkarter/ink/commit/1929ec90b0d315a64742976ffde8f36237b2985e))
+
 ## [0.1.1](https://github.com/dkarter/ink/compare/v0.1.0...v0.1.1) (2026-09-17)
 
 
