@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/dkarter/ink/compare/v0.4.0...v0.5.0) (2026-09-19)
+
+
+### Features
+
+* **website:** refine homepage positioning ([a499a95](https://github.com/dkarter/ink/commit/a499a951f6ebb73395f74c4b607a77c49854b8fb))
+
 ## [0.4.0](https://github.com/dkarter/ink/compare/v0.3.0...v0.4.0) (2026-09-18)
 
 
