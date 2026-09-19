@@ -27,3 +27,15 @@ Ink SHALL describe its commands and capabilities as available behavior without p
 - WHEN a visitor reads the product overview, installation guide, or reference pages
 - THEN implemented behavior is described directly in the present tense
 - AND the copy does not characterize Ink as planned, proposed, experimental, or under development
+
+### Requirement: Communicate focused Vim positioning
+
+The home page SHALL present Ink as a fast, focused way to use familiar Vim editing in script prompts without claiming to be a full editor.
+
+#### Scenario: Home page explains Ink's purpose {#WEB-003}
+
+- GIVEN a visitor who is comfortable with Vim
+- WHEN the visitor reads the home page
+- THEN the primary message connects script input with familiar Vim muscle memory
+- AND the supporting copy mentions visual selection and undo and redo
+- AND the page distinguishes Ink from a full editor

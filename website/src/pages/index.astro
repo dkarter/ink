@@ -14,13 +14,13 @@ const site = "https://ink.doriankarter.com";
     <meta name="viewport" content="width=device-width" />
     <meta
       name="description"
-      content="Ink is a Vim-style prompt editor for composable terminal workflows."
+      content="Ink brings fast, focused Vim editing to input prompts in shell scripts."
     />
     <meta name="theme-color" content="#f3eddf" />
-    <meta property="og:title" content="Ink: edit before you commit." />
+    <meta property="og:title" content="Ink: stay in Vim." />
     <meta
       property="og:description"
-      content="Edit single-line and multiline values with Vim motions, then send clean output down the pipeline."
+      content="Keep your Vim muscle memory when a script asks for input, without opening a full editor."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={`${site}/`} />
@@ -31,7 +31,7 @@ const site = "https://ink.doriankarter.com";
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href={`${site}/`} />
     <link rel="icon" href={path("/favicon.svg")} />
-    <title>Ink: edit before you commit.</title>
+    <title>Ink: stay in Vim.</title>
   </head>
   <body>
     <div class="paper-grain" aria-hidden="true"></div>
@@ -48,18 +48,19 @@ const site = "https://ink.doriankarter.com";
     <main>
       <section class="status-band" aria-label="Product summary">
         <div class="shell">
-          <strong>Terminal note 001</strong><span>Vim-style editing for values
-            moving through shell pipelines.</span>
+          <strong>Small by design</strong><span>Vim muscle memory for the
+            moments your scripts ask for input.</span>
         </div>
       </section>
 
       <section class="hero shell">
         <div class="hero-copy">
-          <p class="eyebrow">A composable editor for terminal prompts</p>
-          <h1>Edit before<br />you <em>commit.</em></h1>
+          <p class="eyebrow">A fast Vim interface for script input</p>
+          <h1>Stay in<br /><em>Vim.</em></h1>
           <p class="lede">
-            Ink brings focused Vim-style editing to shell scripts: one line,
-            many lines, and no detour into a full editor.
+            Ink gives scripts a fast, focused input and textarea with the Vim
+            motions you already know. Edit, select, undo, redo, and submit
+            without opening a full editor.
           </p>
           <div class="actions">
             <a class="primary" href={path("/docs/")}>Read the docs <span
@@ -95,12 +96,11 @@ const site = "https://ink.doriankarter.com";
       <section class="manifesto shell">
         <p class="section-mark">01 / CONTRACT</p>
         <h2>
-          A small tool for the moment between <i>thinking</i> and <i
-          >sending.</i>
+          Don’t leave your <i>muscle memory</i> behind for a prompt.
         </h2>
         <p>
-          Ink’s contract is simple: open an interactive prompt, edit with
-          familiar motions, and emit the accepted value to standard output.
+          Ink puts familiar Vim editing where scripts ask for input. It starts
+          quickly, handles the text, and gets out of the way.
         </p>
       </section>
 
@@ -113,21 +113,21 @@ const site = "https://ink.doriankarter.com";
           </p>
         </article>
         <article>
-          <span>02</span><h3>Modal by design</h3>
+          <span>02</span><h3>Familiar by design</h3>
           <p>
-            Normal, Insert, and Visual modes work in both prompts, with line and
-            block selections in textarea.
+            Normal, Insert, and Visual modes work in both prompts, with Visual
+            Line and Visual Block selection in textarea.
           </p>
         </article>
         <article>
-          <span>03</span><h3>Unicode aware</h3>
+          <span>03</span><h3>Room to rethink</h3>
           <p>
-            Editing follows visible grapheme clusters, so joined emoji and
-            combining marks stay intact.
+            Undo and redo let you experiment freely, backed by a useful surface
+            of the editing commands your hands expect.
           </p>
         </article>
         <article>
-          <span>04</span><h3>Pipeline friendly</h3>
+          <span>04</span><h3>Built for scripts</h3>
           <p>
             Seed from a flag or pipe, edit interactively, then pass the accepted
             value to the next command.
@@ -138,10 +138,10 @@ const site = "https://ink.doriankarter.com";
       <section class="notation shell">
         <div>
           <p class="section-mark">02 / FLOW</p>
-          <h2>Standard input.<br />Human judgment.<br />Standard output.</h2>
+          <h2>Script input.<br />Vim instincts.<br />Clean output.</h2>
           <p>
-            The shell stays in charge. Ink is the brief, deliberate editing
-            layer inside a larger workflow.
+            The shell stays in charge. Ink adds a brief, comfortable editing
+            layer, then sends the accepted value on its way.
           </p>
           <a href={path("/docs/cli/")}>Explore the CLI →</a>
         </div>
@@ -155,10 +155,10 @@ const site = "https://ink.doriankarter.com";
       <section class="themes shell">
         <div class="theme-copy">
           <p class="section-mark">03 / COLOR STUDIES</p>
-          <h2>At home in your terminal.</h2>
+          <h2>Looks like it belongs.</h2>
           <p>
-            Ink includes bundled palettes from Tokyo Night to Solarized Light,
-            plus semantic color overrides.
+            Choose from bundled palettes or tune semantic colors so Ink feels
+            native to your terminal, not bolted onto it.
           </p><a href={path("/docs/themes/")}>Explore themes →</a>
         </div>
         <div class="swatches" aria-label="Preview of theme palettes">
@@ -179,9 +179,9 @@ const site = "https://ink.doriankarter.com";
       <section class="closing shell">
         <Logo size={64} />
         <p class="section-mark">READY WHEN YOU ARE</p>
-        <h2>Keep the shell moving.<br />Take one more pass.</h2>
+        <h2>Keep your hands<br />in Vim.</h2>
         <p>
-          Install Ink, open a prompt, and shape the value before it moves on.
+          Give your scripts better input without bringing along a full editor.
         </p>
         <div class="actions">
           <a class="primary" href={path("/docs/")}>Open the docs <span
@@ -194,7 +194,7 @@ const site = "https://ink.doriankarter.com";
 
     <footer class="shell">
       <a class="brand" href={path("/")}><Logo size={28} /><strong
-        >ink</strong></a><span>Vim-style prompts for shell workflows.</span><a
+        >ink</strong></a><span>Vim muscle memory for script input.</span><a
         href="https://github.com/dkarter/ink"
       >GitHub</a>
     </footer>

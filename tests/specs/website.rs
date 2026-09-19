@@ -51,3 +51,24 @@ fn web_002_documentation_reflects_current_behavior() {
         assert!(!sources.contains(stale), "stale product copy: {stale}");
     }
 }
+
+#[test]
+fn web_003_home_page_explains_inks_purpose() {
+    let home = fs::read_to_string("website/src/pages/index.astro")
+        .expect("read home page")
+        .to_lowercase();
+
+    for message in [
+        "script input",
+        "vim muscle memory",
+        "visual line",
+        "visual block",
+        "undo and redo",
+        "full editor",
+    ] {
+        assert!(
+            home.contains(message),
+            "missing home page message: {message}"
+        );
+    }
+}

@@ -53,7 +53,7 @@
     fill="#596069"
     font-family="Georgia,serif"
     font-size="37"
-  >Edit before you commit.</text>
+  >Stay in Vim.</text>
   <text
     x="102"
     y="506"
@@ -61,5 +61,5 @@
     font-family="monospace"
     font-size="18"
     letter-spacing="2"
-  >COMPOSABLE TERMINAL EDITING</text>
+  >VIM MUSCLE MEMORY FOR SCRIPT INPUT</text>
 </svg>
