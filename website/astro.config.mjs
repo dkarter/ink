@@ -1,9 +1,17 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import {
+  site,
+  socialImageAlt,
+  socialImageHeight,
+  socialImagePath,
+  socialImageType,
+  socialImageWidth,
+} from "./src/social.mjs";
 
-const site = "https://ink.doriankarter.com";
 const base = process.env.INK_SITE_BASE || "/";
 const publicBase = base === "/" ? "" : base.replace(/\/$/, "");
+const socialImage = `${site}${publicBase}${socialImagePath}`;
 
 export default defineConfig({
   site,
@@ -17,13 +25,18 @@ export default defineConfig({
       head: [
         {
           tag: "meta",
-          attrs: { property: "og:image", content: `${site}${publicBase}/og-image.svg` },
+          attrs: { property: "og:image", content: socialImage },
         },
+        { tag: "meta", attrs: { property: "og:image:type", content: socialImageType } },
+        { tag: "meta", attrs: { property: "og:image:width", content: socialImageWidth } },
+        { tag: "meta", attrs: { property: "og:image:height", content: socialImageHeight } },
+        { tag: "meta", attrs: { property: "og:image:alt", content: socialImageAlt } },
         { tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
         {
           tag: "meta",
-          attrs: { name: "twitter:image", content: `${site}${publicBase}/og-image.svg` },
+          attrs: { name: "twitter:image", content: socialImage },
         },
+        { tag: "meta", attrs: { name: "twitter:image:alt", content: socialImageAlt } },
       ],
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/dkarter/ink" }],
       customCss: ["./src/styles/starlight.css"],

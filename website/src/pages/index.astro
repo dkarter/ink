@@ -1,10 +1,21 @@
 ---
 import Logo from "../components/Logo.astro";
+import {
+  description,
+  site,
+  socialDescription,
+  socialImageAlt,
+  socialImageHeight,
+  socialImagePath,
+  socialImageType,
+  socialImageWidth,
+  title,
+} from "../social.mjs";
 import "../styles/site.css";
 
 const base = `${import.meta.env.BASE_URL.replace(/[/]$/, "")}/`;
 const path = (value: string) => `${base}${value.replace(/^[/]/, "")}`;
-const site = "https://ink.doriankarter.com";
+const socialImage = `${site}${socialImagePath}`;
 ---
 
 <!DOCTYPE html>
@@ -14,24 +25,27 @@ const site = "https://ink.doriankarter.com";
     <meta name="viewport" content="width=device-width" />
     <meta
       name="description"
-      content="Ink brings fast, focused Vim editing to input prompts in shell scripts."
+      content={description}
     />
     <meta name="theme-color" content="#f3eddf" />
-    <meta property="og:title" content="Ink: stay in Vim." />
-    <meta
-      property="og:description"
-      content="Keep your Vim muscle memory when a script asks for input, without opening a full editor."
-    />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={socialDescription} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={`${site}/`} />
-    <meta
-      property="og:image"
-      content={`${site}/og-image.svg`}
-    />
+    <meta property="og:site_name" content="Ink" />
+    <meta property="og:image" content={socialImage} />
+    <meta property="og:image:type" content={socialImageType} />
+    <meta property="og:image:width" content={socialImageWidth} />
+    <meta property="og:image:height" content={socialImageHeight} />
+    <meta property="og:image:alt" content={socialImageAlt} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={socialDescription} />
+    <meta name="twitter:image" content={socialImage} />
+    <meta name="twitter:image:alt" content={socialImageAlt} />
     <link rel="canonical" href={`${site}/`} />
     <link rel="icon" href={path("/favicon.svg")} />
-    <title>Ink: stay in Vim.</title>
+    <title>{title}</title>
   </head>
   <body>
     <div class="paper-grain" aria-hidden="true"></div>

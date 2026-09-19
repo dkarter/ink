@@ -39,3 +39,14 @@ The home page SHALL present Ink as a fast, focused way to use familiar Vim editi
 - THEN the primary message connects script input with familiar Vim muscle memory
 - AND the supporting copy mentions visual selection and undo and redo
 - AND the page distinguishes Ink from a full editor
+
+### Requirement: Provide social feed previews
+
+Ink SHALL provide social metadata and broadly supported preview artwork for links to the website.
+
+#### Scenario: Shared links render a large image card {#WEB-004}
+
+- GIVEN a social service that reads Open Graph or Twitter card metadata
+- WHEN a visitor shares the home page or documentation
+- THEN the metadata references a 1200 by 630 PNG image at the canonical domain
+- AND the metadata identifies the image type, dimensions, and alternative text
