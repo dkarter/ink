@@ -60,6 +60,14 @@ run = "aube --dir website install --frozen-lockfile && aube --dir website run bu
 description = "Start the website development server"
 run = "aube --dir website run dev"
 
+[tasks.website-open]
+description = "Start and open the website through its worktree-aware Pitchfork URL"
+run = '''
+pitchfork start website
+url="$(pitchfork status website --json | node -e 'const fs = require("node:fs"); const { url } = JSON.parse(fs.readFileSync(0, "utf8")); if (!url) { console.error("Pitchfork did not provide a website URL"); process.exit(1); } const target = new URL(url); target.port = ""; process.stdout.write(target.href);')"
+open "$url"
+'''
+
 [tasks.workflow-check]
 description = "Validate GitHub Actions workflows"
 run = "actionlint"

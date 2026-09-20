@@ -1,0 +1,13 @@
+# :schema https://pitchfork.jdx.dev/schema.json
+
+[settings.proxy]
+enable = true
+https = true
+port = 8443
+
+[daemons.website]
+run = "exec aube run dev -- --port $PORT --ignore-lock"
+dir = "website"
+mise = true
+port = { expect = [4321], bump = true }
+ready_cmd = "curl -fsS http://localhost:$PORT/"
