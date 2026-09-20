@@ -7,3 +7,9 @@ worktree_naming: basename
 post_create:
   - mise install
   - aube --dir website install --frozen-lockfile
+
+pre_remove:
+  - mise exec -- pitchfork stop --local
+
+post_remove:
+  - mise exec -- pitchfork clean --prune
