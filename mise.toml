@@ -60,6 +60,10 @@ run = "aube --dir website install --frozen-lockfile && aube --dir website run bu
 description = "Start the website development server"
 run = "aube --dir website run dev"
 
+[tasks.website-stop]
+description = "Stop the website development server"
+run = "pitchfork stop website"
+
 [tasks.website-open]
 description = "Start and open the website through its worktree-aware Pitchfork URL"
 run = '''
