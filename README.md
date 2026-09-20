@@ -61,16 +61,7 @@ Input removes LF, CRLF, and lone CR line breaks from seeds and pasted text. Text
 
 ## Development
 
-Install pinned tools and run all checks through mise:
-
-```sh
-mise install
-mise ci
-```
-
-Product behavior is specified in [`openspec/specs`](openspec/specs). Every scenario has a stable ID and exactly one linked Rust test. Any ignored tests in `tests/specs/` are explicit placeholders for capabilities that have not shipped.
-
-The documentation site lives in [`website`](website) and is built with Astro and Starlight.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for environment setup, checks, specifications, and the local documentation website.
 
 ## License
 
