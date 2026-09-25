@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@astrojs/starlight": "0.42.1",
-    "astro": "7.3.2",
+    "astro": "7.3.5",
     "shiki": "4.4.3"
   },
   "devDependencies": {
